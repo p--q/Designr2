@@ -1,4 +1,5 @@
 eclipse.preferences.version=1
 encoding//src/Scripts/python/pythonpath/indoc/commons.py=utf-8
+encoding//src/Scripts/python/pythonpath/indoc/exceptiondialog.py=utf-8
 encoding//src/Scripts/python/pythonpath/indoc/ichiran.py=utf-8
 encoding//tools/replaceEmbeddedScripts.py=utf-8
