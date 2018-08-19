@@ -1,22 +1,23 @@
 #!/opt/libreoffice5.4/program/python
 # -*- coding: utf-8 -*-
 # 一覧シートについて。import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
-import os, unohelper, glob
-from itertools import chain
-from indoc import commons
-from com.sun.star.awt import MouseButton, MessageBoxButtons, MessageBoxResults # 定数
-from com.sun.star.awt.MessageBoxType import ERRORBOX, QUERYBOX  # enum
-from com.sun.star.beans import PropertyValue  # Struct
-from com.sun.star.i18n.TransliterationModulesNew import FULLWIDTH_HALFWIDTH, HIRAGANA_KATAKANA  # enum
-from com.sun.star.lang import Locale  # Struct
+# import os, unohelper, glob
+# from itertools import chain
+from indoc import commons, datedialog
+from com.sun.star.awt import MouseButton  # 定数
+# from com.sun.star.awt import MouseButton, MessageBoxButtons, MessageBoxResults # 定数
+# from com.sun.star.awt.MessageBoxType import ERRORBOX, QUERYBOX  # enum
+# from com.sun.star.beans import PropertyValue  # Struct
+# from com.sun.star.i18n.TransliterationModulesNew import FULLWIDTH_HALFWIDTH, HIRAGANA_KATAKANA  # enum
+# from com.sun.star.lang import Locale  # Struct
 from com.sun.star.sheet import CellFlags  # 定数
-from com.sun.star.sheet.CellDeleteMode import ROWS as delete_rows  # enum
-from com.sun.star.table.CellHoriJustify import LEFT  # enum
-from com.sun.star.ui import ActionTriggerSeparatorType  # 定数
-from com.sun.star.ui.ContextMenuInterceptorAction import EXECUTE_MODIFIED  # enum
+# from com.sun.star.sheet.CellDeleteMode import ROWS as delete_rows  # enum
+# from com.sun.star.table.CellHoriJustify import LEFT  # enum
+# from com.sun.star.ui import ActionTriggerSeparatorType  # 定数
+# from com.sun.star.ui.ContextMenuInterceptorAction import EXECUTE_MODIFIED  # enum
 class Ichiran():  # シート固有の値。
 	def __init__(self):
-		self.splittedrow = 1  # 分割行インデックス。
+		self.splittedrow = 2  # 分割行インデックス。
 		self.idcolumn = 0  # ID列インデックス。	
 		self.kanjicolumn = 1  # 漢字列インデックス。	
 		self.startdaycolumn = 2 # 開始日列インデックス。
@@ -49,7 +50,33 @@ def wClickPt(enhancedmouseevent, xscriptcontext):
 	selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
 	sheet = VARS.sheet
 	celladdress = selection.getCellAddress()
-	r, c = celladdress.Row, celladdress.Column  # selectionの行と列のインデックスを取得。		
+	r, c = celladdress.Row, celladdress.Column  # selectionの行と列のインデックスを取得。
+	idtxt, kanjitxt, startday, endday = sheet[r, VARS.idcolumn:VARS.enddaycolumn].getDataArray()[0]
+	if c==VARS.idcolumn:  # ID列の時。
+		if idtxt:  # 空セルでない時。
+			ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
+			smgr = ctx.getServiceManager()  # サービスマネージャーの取得。
+			systemclipboard = smgr.createInstanceWithContext("com.sun.star.datatransfer.clipboard.SystemClipboard", ctx)  # SystemClipboard。クリップボードへのコピーに利用。
+			systemclipboard.setContents(commons.TextTransferable(idtxt), None)  # クリップボードにIDをコピーする。
+		else:
+			return True  # セル編集モードにする。
+	elif c==VARS.kanjicolumn:  # 漢字列の時。点数シートをアクティブにする、なければ作成する。シート名はIDと一致。	
+		doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 	
+		sheets = doc.getSheets()  # シートコレクションを取得。			
+		if idtxt in sheets:  # 経過列があり、かつ、ID名のシートが存在する時。
+			doc.getCurrentController().setActiveSheet(sheets[idtxt])  # カルテシートをアクティブにする。
+		else:  # 在院日数列が空欄の時、または、カルテシートがない時。
+			if all((idtxt, kanjitxt, startday)):  # ID、漢字名、カナ名、入院日、すべてが揃っている時。	
+				karutesheet = commons.getKaruteSheet(doc, idtxt, kanjitxt, kanatxt, datevalue)  # カルテシートを取得。
+				doc.getCurrentController().setActiveSheet(karutesheet)  # カルテシートをアクティブにする。	
+			else:
+				return True  # セル編集モードにする。						
+	elif c==VARS.startdaycolumn:  # 開始日列の時。
+		datedialog.createDialog(xscriptcontext, enhancedmouseevent, "開始日", "YYYY-MM-DD")			
+	elif c==VARS.enddaycolumn:  # 終了日列の時。
+		datedialog.createDialog(xscriptcontext, enhancedmouseevent, "終了日", "YYYY-MM-DD")		
+	
+			
 # 	sumitxt, yotxt, idtxt, kanjitxt, kanatxt, datevalue, hospdays = sheet[r, :VARS.checkstartcolumn].getDataArray()[0]  # 日付はfloatで返ってくる。	
 # 	datevalue = datevalue and int(datevalue)  # 計算しにくいのでdatevalueがあるときはfloatを整数にしておく。	
 # 	if c==VARS.sumicolumn:  # 済列の時。
