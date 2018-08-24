@@ -41,7 +41,7 @@ def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを�
 				return wClickMenu(enhancedmouseevent, xscriptcontext)
 			if r>=VARS.splittedrow or r !=VARS.blackrow:  # 分割行以下、かつ、区切り行でない、時。
 				return wClickPt(enhancedmouseevent, xscriptcontext)
-	return True  # セル編集モードにする。	
+	return True  # セル編集モードにする。シングルクリックは必ずTrueを返さないといけない。		
 def wClickMenu(enhancedmouseevent, xscriptcontext):
 	selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
 	txt = selection.getString()  # クリックしたセルの文字列を取得。	

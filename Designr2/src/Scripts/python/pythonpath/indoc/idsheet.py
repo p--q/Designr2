@@ -36,7 +36,7 @@ def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを�
 		if selection.supportsService("com.sun.star.sheet.SheetCell"):  # ターゲットがセルの時。
 			celladdress = selection.getCellAddress()
 			r, c = celladdress.Row, celladdress.Column  # selectionの行インデックスと列インデックスを取得。
-			if r==0:  # 列インデックス0の時。
+			if r==0:  # 行インデックス0の時。
 				txt = selection.getString()
 				if txt=="一覧へ":	
 					doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 				
@@ -52,21 +52,29 @@ def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを�
 					
 					
 					
-				elif c==VARS.daycolumn:  # 日付列の時。IDをコピーする。
+				elif c==VARS.daycolumn:  # IDセルの時。IDをコピーする。
 					ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
 					smgr = ctx.getServiceManager()  # サービスマネージャーの取得。
 					systemclipboard = smgr.createInstanceWithContext("com.sun.star.datatransfer.clipboard.SystemClipboard", ctx)  # SystemClipboard。クリップボードへのコピーに利用。
 					systemclipboard.setContents(commons.TextTransferable(txt), None)  # クリップボードにIDをコピーする。
-				elif VARS.startcolumn<=c<VARS.emptycolumn and (c-VARS.startcolumn)%8==0:  # 部位の先頭列の時。部位が入る。上下左右はコンテクストメニューで追加する。
-					defaultrows = "肩", "腰椎部", "仙骨部", "坐骨部", "大転子部", "腓骨部", "腓腹部", "足関節外側", "踵", 
-					staticdialog.createDialog(enhancedmouseevent, xscriptcontext, "部位選択", defaultrows)  # 列ヘッダー毎に定型句ダイアログを作成。
+				elif VARS.startcolumn<=c<VARS.emptycolumn:
+					if (c-VARS.startcolumn)%8==0:  # 部位の先頭列の時。部位が入る。上下左右はコンテクストメニューで追加する。
+						defaultrows = "肩", "腰椎部", "仙骨部", "坐骨部", "大転子部", "腓骨部", "腓腹部", "足関節外側", "踵", 
+						staticdialog.createDialog(enhancedmouseevent, xscriptcontext, "部位選択", defaultrows)  # 列ヘッダー毎に定型句ダイアログを作成。
+					elif (c-VARS.startcolumn)%8==7:  # 開始日セルの時。
+						datedialog.createDialog(enhancedmouseevent, xscriptcontext, "開始日", "D")	
+						
+						# 開始日より上をクリア
+						
 			elif VARS.splittedrow<=r<VARS.emptyrow and VARS.startcolumn<=c<VARS.emptycolumn:  # 点数セルの時。
 				if (c-VARS.startcolumn)%8!=7:  # 部位の最終行以外の時。
 					headertxt = VARS.sheet[VARS.splittedrow-1, c].getString()
 					defaultrows = VARS.dic.get(headertxt, None)
 					staticdialog.createDialog(enhancedmouseevent, xscriptcontext, headertxt, defaultrows, callback=callback_wClickPoints)  # 列ヘッダー毎に定型句ダイアログを作成。
-			elif r==VARS.splittedrow and c==VARS.daycolumn:  # 日付列の先頭行の時。
-				datedialog.createDialog(xscriptcontext, enhancedmouseevent, "開始日", "YYYY-MM-DD")		
+# 			elif r==VARS.splittedrow and c==VARS.daycolumn:  # 日付列の先頭行の時。
+# 				datedialog.createDialog(xscriptcontext, enhancedmouseevent, "月の選択", "YYYY-MM-DD")		
+		return False  # セル編集モードにしない。	
+	return True  # セル編集モードにする。	シングルクリックは必ずTrueを返さないといけない。	
 def callback_wClickPoints(mouseevent, xscriptcontext):
 	selection = xscriptcontext.getDocument().getCurrentSelection()  # シート上で選択しているオブジェクトを取得。	
 	selection.setValue(int(selection.getString().split(":", 1)[0]))
@@ -76,17 +84,17 @@ def selectionChanged(eventobject, xscriptcontext):  # 矢印キーでセル移�
 		VARS.setSheet(selection.getSpreadsheet())			
 		drowBorders(selection)  # 枠線の作成。			
 def drowBorders(selection):  # ターゲットを交点とする行列全体の外枠線を描く。
-	celladdress = selection[0, 0].getCellAddress()  # 選択範囲の左上端のセルアドレスを取得。
-	r = celladdress.Row  # selectionの行と列のインデックスを取得。	
+	rangeaddress = selection.getRangeAddress()  # 選択範囲のセル範囲アドレスを取得。	
 	sheet = VARS.sheet
 	noneline, tableborder2, topbottomtableborder, leftrighttableborder = commons.createBorders()
 	sheet[:, :].setPropertyValue("TopBorder2", noneline)  # 1辺をNONEにするだけですべての枠線が消える。	
-	if r<VARS.splittedrow:  # 分割行より上の時。
-		return  # 罫線を引き直さない。
-	rangeaddress = selection.getRangeAddress()  # 選択範囲のセル範囲アドレスを取得。
-	sheet[rangeaddress.StartRow:rangeaddress.EndRow+1, :].setPropertyValue("TableBorder2", topbottomtableborder)  # 行の上下に枠線を引く
-	sheet[:, rangeaddress.StartColumn:rangeaddress.EndColumn+1].setPropertyValue("TableBorder2", leftrighttableborder)  # 列の左右に枠線を引く。
-	selection.setPropertyValue("TableBorder2", tableborder2)  # 選択範囲の消えた枠線を引き直す。		
+	startrow = VARS.splittedrow if rangeaddress.StartRow<VARS.splittedrow else rangeaddress.StartRow
+	edgerow = rangeaddress.EndRow+1 if rangeaddress.EndRow<VARS.emptyrow else VARS.emptyrow
+	edgecolmun = rangeaddress.EndColumn+1 if rangeaddress.EndColumn<VARS.emptycolumn else VARS.emptycolumn
+	if startrow<edgerow and rangeaddress.StartColumn<edgecolmun:
+		sheet[startrow:edgerow, :VARS.emptycolumn].setPropertyValue("TableBorder2", topbottomtableborder)  # 行の上下に枠線を引く
+		sheet[VARS.splittedrow-1:VARS.emptyrow, rangeaddress.StartColumn:edgecolmun].setPropertyValue("TableBorder2", leftrighttableborder)  # 列の左右に枠線を引く。
+		selection.setPropertyValue("TableBorder2", tableborder2)  # 選択範囲の消えた枠線を引き直す。		
 def notifyContextMenuExecute(contextmenuexecuteevent, xscriptcontext):  # 右クリックメニュー。				
 	controller = contextmenuexecuteevent.Selection  # コントローラーは逐一取得しないとgetSelection()が反映されない。
 	sheet = controller.getActiveSheet()  # アクティブシートを取得。
@@ -99,17 +107,26 @@ def notifyContextMenuExecute(contextmenuexecuteevent, xscriptcontext):  # 右ク
 	selection = controller.getSelection()  # 現在選択しているセル範囲を取得。
 	celladdress = selection[0, 0].getCellAddress()  # 選択範囲の左上角のセルのアドレスを取得。
 	r, c = celladdress.Row, celladdress.Column  # selectionの行と列のインデックスを取得。		
-	if contextmenuname=="cell":  # セルのとき		
-		if r==0 and VARS.startcolumn<=c<VARS.emptycolumn:
-			if (c-VARS.startcolumn)%8==0:  # 部位セルの時。
+	if contextmenuname=="cell":  # セルのとき	
+		if selection.supportsService("com.sun.star.sheet.SheetCell"):  # ターゲットがセルの時。
+			if r==0 and (c-VARS.startcolumn)%8==0:  # 部位セルの時。
 				addMenuentry("ActionTrigger", {"Text": "左", "CommandURL": baseurl.format("entry2")}) 		
 				addMenuentry("ActionTrigger", {"Text": "右", "CommandURL": baseurl.format("entry3")}) 		
-				addMenuentry("ActionTrigger", {"Text": "上", "CommandURL": baseurl.format("entry4")}) 		
-				addMenuentry("ActionTrigger", {"Text": "下", "CommandURL": baseurl.format("entry5")}) 		
+				addMenuentry("ActionTrigger", {"Text": "左右なし", "CommandURL": baseurl.format("entry8")}) 		
 				addMenuentry("ActionTriggerSeparator", {"SeparatorType": ActionTriggerSeparatorType.LINE})  # セパレーターを挿入。
-			commons.cutcopypasteMenuEntries(addMenuentry)					
-			addMenuentry("ActionTriggerSeparator", {"SeparatorType": ActionTriggerSeparatorType.LINE})  # セパレーターを挿入。
-			addMenuentry("ActionTrigger", {"Text": "クリア", "CommandURL": baseurl.format("entry1")}) 	
+				addMenuentry("ActionTrigger", {"Text": "--上", "CommandURL": baseurl.format("entry4")}) 		
+				addMenuentry("ActionTrigger", {"Text": "--下", "CommandURL": baseurl.format("entry5")}) 		
+				addMenuentry("ActionTrigger", {"Text": "--左", "CommandURL": baseurl.format("entry6")}) 		
+				addMenuentry("ActionTrigger", {"Text": "--右", "CommandURL": baseurl.format("entry7")}) 
+				addMenuentry("ActionTrigger", {"Text": "--なし", "CommandURL": baseurl.format("entry9")}) 
+				addMenuentry("ActionTriggerSeparator", {"SeparatorType": ActionTriggerSeparatorType.LINE})  # セパレーターを挿入。
+				commons.cutcopypasteMenuEntries(addMenuentry)					
+				addMenuentry("ActionTriggerSeparator", {"SeparatorType": ActionTriggerSeparatorType.LINE})  # セパレーターを挿入。
+				addMenuentry("ActionTrigger", {"Text": "クリア", "CommandURL": baseurl.format("entry1")}) 	
+			elif VARS.splittedrow<=r<VARS.emptyrow and VARS.startcolumn<=c<VARS.emptycolumn:  # 点数セルの時。
+				addMenuentry("ActionTrigger", {"Text": "開始日にする", "CommandURL": baseurl.format("entry10")})
+				addMenuentry("ActionTriggerSeparator", {"SeparatorType": ActionTriggerSeparatorType.LINE})  # セパレーターを挿入。
+				addMenuentry("ActionTrigger", {"Text": "終了日にする", "CommandURL": baseurl.format("entry11")})	
 	elif contextmenuname=="sheettab":  # シートタブの時。
 		addMenuentry("ActionTrigger", {"CommandURL": ".uno:Remove"})
 		addMenuentry("ActionTrigger", {"CommandURL": ".uno:RenameTable"})
@@ -120,14 +137,45 @@ def contextMenuEntries(entrynum, xscriptcontext):  # コンテクストメニュ
 	selection = controller.getSelection()  # 選択範囲を取得。
 	if entrynum==1:  # クリア。書式設定とオブジェクト以外を消去。
 		selection.clearContents(511)  # 範囲をすべてクリアする。	
-	elif 1<entrynum<6:
+	elif entrynum in (2, 3, 8):  # 前に左右をつける。
 		if entrynum==2:  # 左。
-			txt = "左"
-		if entrynum==3:  # 右。
-			txt = "右"			
+			prefix = "左"
+		elif entrynum==3:  # 右。
+			prefix = "右"			
+		elif entrynum==8:  # 左右なし
+			prefix = ""
+		selection.setString("{}{}".format(prefix, selection.getString().lstrip("左右")))
+	elif entrynum in (4, 5, 6, 7, 9):  # 後に上下左右をつける。	
 		if entrynum==4:  # 上。
-			txt = "上"			
-		if entrynum==5:  # 下。
-			txt = "下"			
-		selection.setString("{}{}".format(txt, selection.getString()))
-			
+			suffix = "上"			
+		elif entrynum==5:  # 下。
+			suffix = "下"			
+		if entrynum==6:  # 左。
+			suffix = "左"			
+		elif entrynum==7:  # 右。
+			suffix = "右"	
+		elif entrynum==9:  # --なし
+			suffix = ""				
+		selection.setString("{}{}".format(selection.getString().rstrip("上下左右"), suffix))
+	elif entrynum==10:  # 開始日にする
+		
+		# 開始日セルの変更。
+		# これより上の行をクリア。
+		
+		
+		
+		
+		pass
+	elif entrynum==11:  # 終了日にする
+		
+
+		# これより下の行をクリア。
+		
+		
+		
+		
+		pass	
+
+		
+		
+		
