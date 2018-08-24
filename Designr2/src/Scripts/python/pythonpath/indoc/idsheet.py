@@ -70,9 +70,7 @@ def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを�
 				if (c-VARS.startcolumn)%8!=7:  # 部位の最終行以外の時。
 					headertxt = VARS.sheet[VARS.splittedrow-1, c].getString()
 					defaultrows = VARS.dic.get(headertxt, None)
-					staticdialog.createDialog(enhancedmouseevent, xscriptcontext, headertxt, defaultrows, callback=callback_wClickPoints)  # 列ヘッダー毎に定型句ダイアログを作成。
-# 			elif r==VARS.splittedrow and c==VARS.daycolumn:  # 日付列の先頭行の時。
-# 				datedialog.createDialog(xscriptcontext, enhancedmouseevent, "月の選択", "YYYY-MM-DD")		
+					staticdialog.createDialog(enhancedmouseevent, xscriptcontext, headertxt, defaultrows, callback=callback_wClickPoints)  # 列ヘッダー毎に定型句ダイアログを作成。	
 		return False  # セル編集モードにしない。	
 	return True  # セル編集モードにする。	シングルクリックは必ずTrueを返さないといけない。	
 def callback_wClickPoints(mouseevent, xscriptcontext):
