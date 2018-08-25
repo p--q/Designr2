@@ -230,42 +230,30 @@ def changesOccurred(changesevent, xscriptcontext):  # Sourceにはドキュメ�
 			break
 	if selection and selection.supportsService("com.sun.star.sheet.SheetCell"):  # セルの時。
 		celladdress = selection.getCellAddress()
-		r, c = celladdress.Row, celladdress.Column  # selectionの行と列のインデックスを取得。		
-		if VARS.splittedrow<=r<VARS.emptyrow and VARS.startcolumn<=c<VARS.emptycolumn:  # 点数セルの時。
+		r, c = celladdress.Row, celladdress.Column  # selectionの行と列のインデックスを取得。	
+		if r==VARS.splittedrow and c<VARS.daycolumn-1:
+			
+			
+			pass
+		
+			
+		elif VARS.splittedrow<=r<VARS.emptyrow and VARS.startcolumn<=c<VARS.emptycolumn:  # 点数セルの時。
 			sheet = VARS.sheet
 			datarange = sheet[r, :VARS.emptycolumn]
-			datarow = datarange.getDataArray()[0]
+			datarow = list(datarange.getDataArray()[0])
 			thisc = c-(c-VARS.startcolumn)%8  # 部位の開始列インデックスを取得。
+			clearCellBackColor(thisc)
+			if "" in datarow[thisc:thisc+7]:  # 空セルがあるときは何もしない。
+				return
 			datarow[thisc+7] = sum(datarow[thisc:thisc+7])
 			datarow[VARS.daycolumn-1] = min(datarow[i] for i in range(VARS.startcolumn+7, VARS.emptycolumn, 8))
 			datarange.setDataArray((datarow,))
-		
-		
 			prevs = sheet[VARS.splittedrow, :VARS.daycolumn-1].getDataArray()[0]
-		
-		
-		
-		# 変化した日の計算値を入力する。
-		
-		# マイナス日の最低値の背景色を変える。
-		
-
-		
-		
-# 		
-# 		
-# 		offdayc = VARS.templatestartcolumn - 1  # 休日設定のある列インデックスを取得。
-# 		if VARS.datarow<=r<VARS.emptyrow:  # 予定セルまたはテンプレートセルのある行の時。
-# 			if VARS.datacolumn-1<c<VARS.firstemptycolumn or offdayc<c<VARS.templateendcolumnedge:  # 予定セルまたはテンプレートセルのある列の時。
-# 				setCellProp(selection)
-# 		elif celladdress.Column==offdayc and selection.getValue()>0:  # 選択セルが休日設定のある列、かつ、選択セルに0より大きい数値が入っている。の時。 
-# 			sheet = selection.getSpreadsheet()
-# 			searchdescriptor = sheet.createSearchDescriptor()
-# 			searchdescriptor.setSearchString("休日設定")  # 戻り値はない。
-# 			searchedcell = sheet[VARS.emptyrow:, offdayc].findFirst(searchdescriptor)  # 休日設定の開始セルを取得。見つからなかった時はNoneが返る。
-# 			if searchedcell:  # 休日設定の開始セルがある時。
-# 				if celladdress.Row>searchedcell.getCellAddress().Row+1:  # 休日設定の開始行より下の時。
-# 					selection.setPropertyValues(("NumberFormat", "HoriJustify"), (commons.formatkeyCreator(xscriptcontext.getDocument())('YYYY-M-D'), LEFT))
-		
-
-
+			if "" in prevs:
+				return 
+			if prevs[0]<prevs[1]<prevs[2]<datarow[VARS.daycolumn-1]:
+				color = commons.COLORS["magenta3"]
+			else:
+				color = -1
+			sheet[r, VARS.daycolumn-1].setPropertyValue("CellBackColor", color)
+			
