@@ -87,10 +87,10 @@ def convertKanaFULLWIDTH(transliteration, kanatxt):  # カナ名を半角から�
 # 	kanatxt = convertKanaFULLWIDTH(transliteration, kanatxt)  # カナ名を半角からスペースを削除して全角にする。
 # 	dirpath = os.path.dirname(unohelper.fileUrlToSystemPath(doc.getURL()))  # このドキュメントのあるディレクトリのフルパスを取得。
 # 	return os.path.join(dirpath, "*", filename.format(kanatxt, idtxt))  # ワイルドカード入のシートファイル名を取得。	
-# def showErrorMessageBox(controller, msg):
-# 	componentwindow = controller.ComponentWindow
-# 	msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, ERRORBOX, MessageBoxButtons.BUTTONS_OK, "myRs", msg)
-# 	msgbox.execute()
+def showErrorMessageBox(controller, msg):
+	componentwindow = controller.ComponentWindow
+	msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, ERRORBOX, MessageBoxButtons.BUTTONS_OK, "myRs", msg)
+	msgbox.execute()
 # def getKaruteSheet(doc, idtxt, kanjitxt, kanatxt, datevalue):
 # 	sheets = doc.getSheets()  # シートコレクションを取得。
 # 	if idtxt in sheets:  # すでに経過シートがある時。

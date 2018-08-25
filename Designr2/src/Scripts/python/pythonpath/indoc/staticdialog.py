@@ -109,6 +109,7 @@ def createDialog(enhancedmouseevent, xscriptcontext, dialogtitle, defaultrows=No
 				dialogwindow.setPosSize(0, 0, dialogstate["Width"], dialogstate["Height"], PosSize.SIZE)  # ウィンドウサイズを復元。WindowListenerが発火する。
 	args = doc, actionlistener, dialogwindow, windowlistener, mouselistener, menulistener, controlcontainerwindowlistener, optioncontrolcontainerwindowlistener
 	dialogframe.addCloseListener(CloseListener(args))  # CloseListener。ノンモダルダイアログのリスナー削除用。	
+	return gridcontrol1, datarows  # グリッド行の選択のためにグリッドコントロールとグリッドのデータ行を返す。
 class CloseListener(unohelper.Base, XCloseListener):  # ノンモダルダイアログのリスナー削除用。
 	def __init__(self, args):
 		self.args = args
@@ -254,7 +255,7 @@ class MouseListener(unohelper.Base, XMouseListener):
 					if callback is not None:  # コールバック関数が与えられている時。
 						callback(mouseevent, xscriptcontext)						
 					if not flg:	
-						controller.select(sheet[r+1, c])  # 下のセルを選択。	
+						controller.select(sheet[r, c+1])  # 右のセルを選択。	
 				for menuid in range(1, self.gridpopupmenu.getItemCount()+1):  # ポップアップメニューを走査する。
 					itemtext = self.gridpopupmenu.getItemText(menuid)  # 文字列にはショートカットキーがついてくる。
 					if itemtext.startswith("セル入力で閉じる"):
