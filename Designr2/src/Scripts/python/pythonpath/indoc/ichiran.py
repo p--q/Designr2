@@ -3,7 +3,7 @@
 # 一覧シートについて。import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
 # import os, unohelper, glob
 # from itertools import chain
-from indoc import commons, datedialog, idsheet
+from indoc import commons, datedialog, points
 from com.sun.star.awt import MouseButton, MessageBoxButtons, MessageBoxResults # 定数
 from com.sun.star.awt.MessageBoxType import QUERYBOX  # enum
 # from com.sun.star.beans import PropertyValue  # Struct
@@ -53,21 +53,22 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 			
 				
 			pass
-	elif txt=="今月分印刷":
+	elif txt=="全印刷":
 		
 		pass
-	elif txt=="先月分印刷":
+	elif txt=="過去月":
+		
+		# 同じフォルダにあるファイル一覧を取得してstaticdialogで開く。
+		
 		
 		pass
-	elif txt=="過去分印刷":
-		
-		pass
+
 def wClickPt(enhancedmouseevent, xscriptcontext):
 	selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
 	sheet = VARS.sheet
 	celladdress = selection.getCellAddress()
 	r, c = celladdress.Row, celladdress.Column  # selectionの行と列のインデックスを取得。
-	idtxt, kanjitxt, startday, endday = sheet[r, VARS.idcolumn:VARS.enddaycolumn].getDataArray()[0]
+	idtxt, kanjitxt, datevalue = sheet[r, VARS.idcolumn:VARS.enddaycolumn].getDataArray()[0]
 	if c==VARS.idcolumn:  # ID列の時。
 		if idtxt:  # 空セルでない時。
 			ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
@@ -82,28 +83,28 @@ def wClickPt(enhancedmouseevent, xscriptcontext):
 		if idtxt in sheets:  # 経過列があり、かつ、IDシートが存在する時。
 			doc.getCurrentController().setActiveSheet(sheets[idtxt])  # ID名のシートをアクティブにする。
 		else:  # ID名シートがない時。
-			if all((idtxt, kanjitxt, startday)):  # ID、漢字名、開始日、すべてが揃っている時。	
+			if all((idtxt, kanjitxt, datevalue)):  # ID、漢字名、開始日、すべてが揃っている時。	
+				ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
+				smgr = ctx.getServiceManager()  # サービスマネージャーの取得。				
+				functionaccess = smgr.createInstanceWithContext("com.sun.star.sheet.FunctionAccess", ctx)  # シート関数利用のため。		
+				daycount = int(functionaccess.callFunction("DAYSINMONTH", (datevalue,)))  # 開始月の日数を取得。
+				startdatevalue = int(functionaccess.callFunction("EOMONTH", (datevalue, -1))) + 1  # 開始月の開始日のシリアル値を取得。
 				sheets.copyByName("00000000", idtxt, len(sheets))  # テンプレートシートをコピーしてID名のシートにして最後に挿入。	
 				idsheet = sheets[idtxt]  # IDシートを取得。  
-				idsheetvars = idsheet.VARS
-# 				idsheetvars.setSheet(idsheet)	
-# 				karutedatecell = karutesheet[karutevars.splittedrow, karutevars.datecolumn]
-# 				karutedatecell.setValue(datevalue)  # カルテシートに入院日を入力。
-# 				createFormatKey = formatkeyCreator(doc)
-# 				karutedatecell.setPropertyValues(("NumberFormat", "HoriJustify"), (createFormatKey('YYYY-MM-DD'), LEFT))  # カルテシートの入院日の書式設定。左寄せにする。
-# 				karutesheet[:karutevars.splittedrow, karutevars.articlecolumn].setDataArray((("",), (" ".join((idtxt, kanjitxt, kanatxt)),)))  # カルテシートのコピー日時をクリア。ID名前を入力。
-
-				
-				
-
-				
+				pointsvars = points.VARS
+				datarows = [(idtxt,), (kanjitxt,)]
+				datarows.extend((i,) for i in range(startdatevalue, startdatevalue+daycount))
+				splittedrow = pointsvars.splittedrow
+				idsheet[:splittedrow+daycount, pointsvars.daycolumn].setDataArray(datarows)
+				idsheet[splittedrow+1:splittedrow+daycount, :pointsvars.mincolumn].setPropertyValue("CellBackColor", commons.COLORS["silver"])  # 背景色をつける
+				idsheet[splittedrow:splittedrow+daycount, pointsvars.mincolumn].setPropertyValue("NumberFormat", commons.formatkeyCreator(doc)("YYYY-M-DD"))
 				doc.getCurrentController().setActiveSheet(idsheet)  # IDシートをアクティブにする。	
 			else:
 				return True  # セル編集モードにする。						
 	elif c==VARS.startdaycolumn:  # 開始日列の時。
-		datedialog.createDialog(xscriptcontext, enhancedmouseevent, "開始日", "YYYY-MM-DD")			
+		datedialog.createDialog(enhancedmouseevent, xscriptcontext, "開始日", "YYYY-M")			
 	elif c==VARS.enddaycolumn:  # 終了日列の時。
-		datedialog.createDialog(xscriptcontext, enhancedmouseevent, "終了日", "YYYY-MM-DD")		
+		datedialog.createDialog(enhancedmouseevent, xscriptcontext, "終了日", "YYYY-M")		
 	return False  # セル編集モードにしない。		
 def selectionChanged(eventobject, xscriptcontext):  # 矢印キーでセル移動した時も発火する。
 	selection = eventobject.Source.getSelection()

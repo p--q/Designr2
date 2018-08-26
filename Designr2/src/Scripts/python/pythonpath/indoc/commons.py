@@ -1,7 +1,7 @@
 #!/opt/libreoffice5.4/program/python
 # -*- coding: utf-8 -*-
 import os, unohelper
-from indoc import ichiran, idsheet, documentevent  # 相対インポートは不可。
+from indoc import ichiran, points, documentevent  # 相対インポートは不可。
 from com.sun.star.awt import MessageBoxButtons  # 定数
 from com.sun.star.awt.MessageBoxType import ERRORBOX  # enum
 from com.sun.star.datatransfer import XTransferable
@@ -48,7 +48,7 @@ def getModule(sheetname):  # シート名に応じてモジュールを振り分
 	elif sheetname=="一覧":
 		return ichiran
 	elif sheetname.isdigit():  # シート名が数字のみの時IDシート。
-		return idsheet
+		return points
 	return None  # モジュールが見つからなかった時はNoneを返す。
 class TextTransferable(unohelper.Base, XTransferable):
 	def __init__(self, txt):  # クリップボードに渡す文字列を受け取る。

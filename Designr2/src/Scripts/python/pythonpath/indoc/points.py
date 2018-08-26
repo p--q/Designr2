@@ -61,8 +61,8 @@ def activeSpreadsheetChanged(activationevent, xscriptcontext):  # シートが�
 		sheet[splittedrow:VARS.emptyrow, VARS.mincolumn].setPropertyValue("CellBackColor", -1)	 # 最低点列の背景色をクリア。	
 		datarows = sheet[splittedrow:todayrow+1, :emptycolumn].getDataArray()  # 分割行から今日の行までの空列までのデータ行のタプルを取得。
 		prevs = datarows[0][:VARS.mincolumn]  # 3月前の最低点のタプルを取得。
-		startpartialsumcolumn = VARS.startcolumn+7
-		mindatarows = [(min(d[i] for i in range(startpartialsumcolumn, emptycolumn, 8)),) for d in datarows]  # 部位別合計列の最低点の行のタプルのリスト。
+		cs = range(VARS.startcolumn+7, emptycolumn, 8)
+		mindatarows = [(min([d[i] for i in cs if not d[i]==""], default=""),) for d in datarows]  # 部位別合計列の最低点の行のタプルのリスト。
 		highlightPenaltyDays(xscriptcontext.getDocument(), prevs, mindatarows)
 		sheet[splittedrow:splittedrow+len(mindatarows), VARS.mincolumn].setDataArray(mindatarows)  # 日の最低点のセル範囲に代入。
 def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを押した時。controllerにコンテナウィンドウはない。
@@ -309,10 +309,28 @@ def contextMenuEntries(entrynum, xscriptcontext):  # コンテクストメニュ
 		clearCellBackColor(thisc)  # 列インデックスcのある部位の値のあるセルの背景色をクリアする。		
 	elif entrynum==12:  # この部位を削除
 		msg = "この部位({})をすべて削除します。\n元には戻せません。".format(selection.getString())
-		if showWarningMessageBox(controller, msg)==MessageBoxResults.OK:			
+		if showWarningMessageBox(controller, msg)==MessageBoxResults.OK:		
+			sheet = VARS.sheet	
 			celladdress = selection.getCellAddress()
 			c = celladdress.Column  # selectionの列インデックスを取得。
-			VARS.sheet.removeRange(VARS.sheet[:, c:c+8].getRangeAddress(), delete_columns)  # 列を削除。	
+			VARS.sheet.removeRange(sheet[:, c:c+8].getRangeAddress(), delete_columns)  # 列を削除。	
+			splittedrow = VARS.splittedrow
+			emptycolumn = VARS.emptycolumn				
+			sheet[splittedrow:VARS.emptyrow, VARS.mincolumn].setPropertyValue("CellBackColor", -1)	 # 最低点列の背景色をクリア。	
+			ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
+			smgr = ctx.getServiceManager()  # サービスマネージャーの取得。	
+			functionaccess = smgr.createInstanceWithContext("com.sun.star.sheet.FunctionAccess", ctx)  # シート関数利用のため。			
+			startdatevalue = int(sheet[splittedrow, VARS.daycolumn].getValue())
+			datevalues = [i for i in range(startdatevalue, startdatevalue+VARS.emptyrow-splittedrow)]
+			todayvalue = int(functionaccess.callFunction("TODAY", ()))  # 今日のシリアル値を整数で取得。floatで返る。
+			if todayvalue in datevalues:  # 今日の行が最終行より下にある時。
+				todayrow = splittedrow + datevalues.index(todayvalue)			
+				datarows = sheet[VARS.splittedrow:todayrow+1, :emptycolumn].getDataArray()  # 分割行から今日の行までの空列までのデータ行のタプルを取得。
+				prevs = datarows[0][:VARS.mincolumn]  # 3月前の最低点のタプルを取得。
+				cs = range(VARS.startcolumn+7, emptycolumn, 8)
+				mindatarows = [(min([d[i] for i in cs if not d[i]==""], default=""),) for d in datarows]  # 部位別合計列の最低点の行のタプルのリスト。
+				highlightPenaltyDays(xscriptcontext.getDocument(), prevs, mindatarows)
+				sheet[splittedrow:splittedrow+len(mindatarows), VARS.mincolumn].setDataArray(mindatarows)  # 日の最低点のセル範囲に代入。			
 def showWarningMessageBox(controller, msg):	
 	componentwindow = controller.ComponentWindow
 	msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, WARNINGBOX, MessageBoxButtons.BUTTONS_OK_CANCEL+MessageBoxButtons.DEFAULT_BUTTON_CANCEL, "myRs", msg)
