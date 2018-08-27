@@ -84,6 +84,7 @@ def wClickPt(enhancedmouseevent, xscriptcontext):
 			doc.getCurrentController().setActiveSheet(sheets[idtxt])  # ID名のシートをアクティブにする。
 		else:  # ID名シートがない時。
 			if all((idtxt, kanjitxt, datevalue)):  # ID、漢字名、開始日、すべてが揃っている時。	
+				colors = commons.COLORS
 				ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
 				smgr = ctx.getServiceManager()  # サービスマネージャーの取得。				
 				functionaccess = smgr.createInstanceWithContext("com.sun.star.sheet.FunctionAccess", ctx)  # シート関数利用のため。		
@@ -95,9 +96,25 @@ def wClickPt(enhancedmouseevent, xscriptcontext):
 				datarows = [(idtxt,), (kanjitxt,)]
 				datarows.extend((i,) for i in range(startdatevalue, startdatevalue+daycount))
 				splittedrow = pointsvars.splittedrow
-				idsheet[:splittedrow+daycount, pointsvars.daycolumn].setDataArray(datarows)
-				idsheet[splittedrow+1:splittedrow+daycount, :pointsvars.mincolumn].setPropertyValue("CellBackColor", commons.COLORS["silver"])  # 背景色をつける
-				idsheet[splittedrow:splittedrow+daycount, pointsvars.mincolumn].setPropertyValue("NumberFormat", commons.formatkeyCreator(doc)("YYYY-M-DD"))
+				emptyrow = splittedrow + daycount
+				idsheet[:emptyrow, pointsvars.daycolumn].setDataArray(datarows)
+				idsheet[splittedrow+1:emptyrow, :pointsvars.mincolumn].setPropertyValue("CellBackColor", colors["silver"])  # 背景色をつける
+				idsheet[splittedrow:emptyrow, pointsvars.daycolumn].setPropertyValue("NumberFormat", commons.formatkeyCreator(doc)("YYYY-M-DD"))
+				y, m = [int(functionaccess.callFunction(i, (startdatevalue,))) for i in ("YEAR", "MONTH")]
+				holidays = commons.HOLIDAYS	
+				holidayindexes = set()
+				if y in holidays:
+					holidayindexes.update(holidays[y][m-1])
+				startweekday = int(functionaccess.callFunction("WEEKDAY", (startdatevalue, 3)))  # 開始日の曜日を取得。月=0。
+				n = 6  # 日曜日の曜日番号。
+				sunindexes = set(range(splittedrow+(n-startweekday)%7, emptyrow, 7))  # 日曜日の列インデックスの集合。祝日と重ならないようにあとで使用する。	
+				holidayindexes.difference_update(sunindexes)  # 祝日インデックスから日曜日インデックスを除く。
+				n = 5  # 土曜日の曜日番号。
+				satindexes = set(range(splittedrow+(n-startweekday)%7, emptyrow, 7))  # 土曜日の列インデックスの集合。
+				setRangesProperty = createSetRangesProperty(doc, idsheet, pointsvars.daycolumn)
+				setRangesProperty(holidayindexes, ("CellBackColor", colors["red3"]))
+				setRangesProperty(sunindexes, ("CharColor", colors["red3"]))
+				setRangesProperty(satindexes, ("CharColor", colors["skyblue"]))
 				doc.getCurrentController().setActiveSheet(idsheet)  # IDシートをアクティブにする。	
 			else:
 				return True  # セル編集モードにする。						
@@ -105,7 +122,15 @@ def wClickPt(enhancedmouseevent, xscriptcontext):
 		datedialog.createDialog(enhancedmouseevent, xscriptcontext, "開始日", "YYYY-M")			
 	elif c==VARS.enddaycolumn:  # 終了日列の時。
 		datedialog.createDialog(enhancedmouseevent, xscriptcontext, "終了日", "YYYY-M")		
-	return False  # セル編集モードにしない。		
+	return False  # セル編集モードにしない。	
+def createSetRangesProperty(doc, sheet, c): 
+	def setRangesProperty(rowindexes, prop):  # c列のrowindexesの行のプロパティを変更。prop: プロパティ名とその値のリスト。
+		cellranges = doc.createInstance("com.sun.star.sheet.SheetCellRanges")  # セル範囲コレクション。
+		if rowindexes:  
+			cellranges.addRangeAddresses([sheet[i, c].getRangeAddress() for i in rowindexes], False)  # セル範囲コレクションを取得。rowindexesが空要素だとエラーになる。
+			if len(cellranges):  # sheetcellrangesに要素がないときはsetPropertyValue()でエラーになるので要素の有無を確認する。
+				cellranges.setPropertyValue(*prop)  # セル範囲コレクションのプロパティを変更。
+	return setRangesProperty	
 def selectionChanged(eventobject, xscriptcontext):  # 矢印キーでセル移動した時も発火する。
 	selection = eventobject.Source.getSelection()
 	if selection.supportsService("com.sun.star.sheet.SheetCellRange"):  # 選択範囲がセル範囲の時。

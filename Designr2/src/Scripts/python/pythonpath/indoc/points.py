@@ -46,7 +46,7 @@ def activeSpreadsheetChanged(activationevent, xscriptcontext):  # シートが�
 	ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
 	smgr = ctx.getServiceManager()  # サービスマネージャーの取得。	
 	functionaccess = smgr.createInstanceWithContext("com.sun.star.sheet.FunctionAccess", ctx)  # シート関数利用のため。			
-	startdatevalue = int(sheet[splittedrow, VARS.daycolumn].getValue())
+	startdatevalue = int(sheet[splittedrow, VARS.daycolumn].getValue())  # シートの開始日のシリアル値を取得。
 	datevalues = [i for i in range(startdatevalue, startdatevalue+VARS.emptyrow-splittedrow)]
 	todayvalue = int(functionaccess.callFunction("TODAY", ()))  # 今日のシリアル値を整数で取得。floatで返る。
 	if todayvalue in datevalues:  # 今日の行が最終行より下にある時。
@@ -54,7 +54,7 @@ def activeSpreadsheetChanged(activationevent, xscriptcontext):  # シートが�
 		for i in range(VARS.startcolumn, emptycolumn, 8):  # 部位別開始列をイテレート。
 			cellranges = sheet[:, i+7].queryContentCells(CellFlags.STRING+CellFlags.VALUE+CellFlags.FORMULA)  # 部位別合計列の文字列、数値、式が入っているセルに限定して抽出。
 			endrow = cellranges.getRangeAddresses()[-1].EndRow  # 列の最終行インデックスを取得。
-			if endrow<todayrow:
+			if splittedrow<=endrow<todayrow:
 				enddatarows = sheet[endrow, i:i+8].getDataArray()  # 最終行のタプルを取得。
 				newdatarows = enddatarows*(todayrow-endrow)  # 最終行を複製。
 				sheet[endrow+1:todayrow+1, i:i+8].setDataArray(newdatarows)  # 最終行を今日の行までコピー。
