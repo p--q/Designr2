@@ -56,18 +56,21 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 		msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, QUERYBOX, MessageBoxButtons.BUTTONS_OK_CANCEL+MessageBoxButtons.DEFAULT_BUTTON_CANCEL, "myRs", msg)
 		if msgbox.execute()==MessageBoxResults.OK:	
 			
-			
+			# 開始日から終了日の月までのシートが揃っているものだけ削除する。
+			# そろっていないものは残して、まとめて警告をだす。
 				
 			pass
 	elif txt=="印刷":
 		
-		
+		# idシートの範囲を限定して印刷する。
 		
 		pass
 		
 	elif txt=="月末印刷":
 		
+		#  月末まで各部位の最終行をコピーしてから印刷。
 		
+		# コピーした数値はidシートをアクティブにしたときに本日より下行はクリアする。
 		
 		pass
 	elif txt=="過去月":
