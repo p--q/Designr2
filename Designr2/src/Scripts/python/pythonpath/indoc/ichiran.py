@@ -1,9 +1,9 @@
 #!/opt/libreoffice5.4/program/python
 # -*- coding: utf-8 -*-
 # 一覧シートについて。import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
-# import os, unohelper, glob
+import os, unohelper, glob
 # from itertools import chain
-from indoc import commons, datedialog, points
+from indoc import commons, datedialog, points, transientdialog
 from com.sun.star.awt import MouseButton, MessageBoxButtons, MessageBoxResults # 定数
 from com.sun.star.awt.MessageBoxType import QUERYBOX  # enum
 # from com.sun.star.beans import PropertyValue  # Struct
@@ -33,7 +33,7 @@ class Ichiran():  # シート固有の値。
 VARS = Ichiran()
 def activeSpreadsheetChanged(activationevent, xscriptcontext):  # シートがアクティブになった時。ドキュメントを開いた時は発火しない。よく誤入力されるセルを修正する。つまりボタンになっているセルの修正。
 	sheet = activationevent.ActiveSheet  # アクティブになったシートを取得。
-	datarows = ("終了を消去", "", "印刷", "外挿印刷", "過去月"),
+	datarows = ("終了を消去", "", "印刷", "月末印刷", "過去月"),
 	sheet[0, :len(datarows[0])].setDataArray(datarows)
 def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを押した時。controllerにコンテナウィンドウはない。
 	if enhancedmouseevent.ClickCount==2 and enhancedmouseevent.Buttons==MouseButton.LEFT:  # 左ダブルクリックの時。まずselectionChanged()が発火している。
@@ -47,32 +47,45 @@ def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを�
 				return wClickPt(enhancedmouseevent, xscriptcontext)
 	return True  # セル編集モードにする。シングルクリックは必ずTrueを返さないといけない。		
 def wClickMenu(enhancedmouseevent, xscriptcontext):
+	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 
 	selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
 	txt = selection.getString()  # クリックしたセルの文字列を取得。	
 	if txt=="終了を消去":
 		msg = "黒行上の行をすべて削除しますか?"
-		componentwindow = xscriptcontext.getDocument().getCurrentController().ComponentWindow
+		componentwindow = doc.getCurrentController().ComponentWindow
 		msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, QUERYBOX, MessageBoxButtons.BUTTONS_OK_CANCEL+MessageBoxButtons.DEFAULT_BUTTON_CANCEL, "myRs", msg)
 		if msgbox.execute()==MessageBoxResults.OK:	
+			
 			
 				
 			pass
 	elif txt=="印刷":
-		doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 
 		
 		
 		
+		pass
 		
-	elif txt=="外挿印刷":
+	elif txt=="月末印刷":
+		
+		
 		
 		pass
 	elif txt=="過去月":
-		
-		# 同じフォルダにあるファイル一覧を取得してstaticdialogで開く。
-		
-		
-		pass
-
+		dirpath = os.path.dirname(unohelper.fileUrlToSystemPath(doc.getURL()))  # このドキュメントのあるディレクトリのフルパスを取得。
+		defaultrows = [os.path.basename(i).split(".")[0] for i in glob.iglob(os.path.join(dirpath, "*", "*年*月.ods"), recursive=True)]  # *年*月のみリストに取得。
+		if defaultrows:
+			defaultrows.sort(reverse=True)  # 降順にソートする。
+			transientdialog.createDialog(xscriptcontext, txt, defaultrows, enhancedmouseevent=enhancedmouseevent, fixedtxt=txt, callback=callback_wClickGrid)  # fixedtxtでボタン名を入れなおしている(無駄)。
+		else:
+			msg = "過去のファイルはありません。"
+			commons.showErrorMessageBox(doc.getCurrentController(), msg)
+	return False  # セル編集モードにしない。			
+def callback_wClickGrid(mouseevent, xscriptcontext, gridcelldata):  # gridcelldata: グリッドコントロールのダブルクリックしたセルのデータ。	
+	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 	
+	dirpath = os.path.dirname(unohelper.fileUrlToSystemPath(doc.getURL()))  # このドキュメントのあるディレクトリのフルパスを取得。	
+	systempath = next(glob.iglob(os.path.join(dirpath, "*", "{}.ods".format(gridcelldata)), recursive=True))  # ファイルパスを取得。	
+	fileurl = unohelper.systemPathToFileUrl(systempath)	
+	xscriptcontext.getDesktop().loadComponentFromURL(fileurl, "_blank", 0, ())  # ファイルを開く。
 def wClickPt(enhancedmouseevent, xscriptcontext):
 	selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
 	sheet = VARS.sheet
@@ -110,21 +123,7 @@ def wClickPt(enhancedmouseevent, xscriptcontext):
 				idsheet[:emptyrow, pointsvars.daycolumn].setDataArray(datarows)
 				idsheet[splittedrow+1:emptyrow, :pointsvars.mincolumn].setPropertyValue("CellBackColor", colors["silver"])  # 背景色をつける
 				idsheet[splittedrow:emptyrow, pointsvars.daycolumn].setPropertyValue("NumberFormat", commons.formatkeyCreator(doc)("YYYY-M-DD"))
-				y, m = [int(functionaccess.callFunction(i, (startdatevalue,))) for i in ("YEAR", "MONTH")]
-				holidays = commons.HOLIDAYS	
-				holidayindexes = set()
-				if y in holidays:
-					holidayindexes.update(holidays[y][m-1])
-				startweekday = int(functionaccess.callFunction("WEEKDAY", (startdatevalue, 3)))  # 開始日の曜日を取得。月=0。
-				n = 6  # 日曜日の曜日番号。
-				sunindexes = set(range(splittedrow+(n-startweekday)%7, emptyrow, 7))  # 日曜日の列インデックスの集合。祝日と重ならないようにあとで使用する。	
-				holidayindexes.difference_update(sunindexes)  # 祝日インデックスから日曜日インデックスを除く。
-				n = 5  # 土曜日の曜日番号。
-				satindexes = set(range(splittedrow+(n-startweekday)%7, emptyrow, 7))  # 土曜日の列インデックスの集合。
-				setRangesProperty = createSetRangesProperty(doc, idsheet, pointsvars.daycolumn)
-				setRangesProperty(holidayindexes, ("CellBackColor", colors["red3"]))
-				setRangesProperty(sunindexes, ("CharColor", colors["red3"]))
-				setRangesProperty(satindexes, ("CharColor", colors["skyblue"]))
+				points.colorizeDays(doc, functionaccess, startdatevalue)
 				doc.getCurrentController().setActiveSheet(idsheet)  # IDシートをアクティブにする。	
 			else:
 				return True  # セル編集モードにする。						
@@ -133,14 +132,6 @@ def wClickPt(enhancedmouseevent, xscriptcontext):
 	elif c==VARS.enddaycolumn:  # 終了日列の時。
 		datedialog.createDialog(enhancedmouseevent, xscriptcontext, "終了日", "YYYY-M-D")		
 	return False  # セル編集モードにしない。	
-def createSetRangesProperty(doc, sheet, c): 
-	def setRangesProperty(rowindexes, prop):  # c列のrowindexesの行のプロパティを変更。prop: プロパティ名とその値のリスト。
-		cellranges = doc.createInstance("com.sun.star.sheet.SheetCellRanges")  # セル範囲コレクション。
-		if rowindexes:  
-			cellranges.addRangeAddresses([sheet[i, c].getRangeAddress() for i in rowindexes], False)  # セル範囲コレクションを取得。rowindexesが空要素だとエラーになる。
-			if len(cellranges):  # sheetcellrangesに要素がないときはsetPropertyValue()でエラーになるので要素の有無を確認する。
-				cellranges.setPropertyValue(*prop)  # セル範囲コレクションのプロパティを変更。
-	return setRangesProperty	
 def selectionChanged(eventobject, xscriptcontext):  # 矢印キーでセル移動した時も発火する。
 	selection = eventobject.Source.getSelection()
 	if selection.supportsService("com.sun.star.sheet.SheetCellRange"):  # 選択範囲がセル範囲の時。

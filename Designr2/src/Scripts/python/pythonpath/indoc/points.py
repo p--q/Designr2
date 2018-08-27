@@ -81,7 +81,7 @@ def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを�
 				controller = doc.getCurrentController()  # コントローラの取得。	
 				txt = selection.getString()
 				if txt=="一覧へ":			
-					controller.setActiveSheet(doc.getSheets()[txt])  # 一覧シートをアクティブにする。
+					controller.setActiveSheet(doc.getSheets()["一覧"])  # 一覧シートをアクティブにする。
 				elif txt=="月更新":
 					functionaccess = smgr.createInstanceWithContext("com.sun.star.sheet.FunctionAccess", ctx)  # シート関数利用のため。		
 					datarow = list(sheet[VARS.emptyrow-1, :VARS.emptycolumn].getDataArray()[0])  # 最終行を右端列までリストで取得。
@@ -101,11 +101,10 @@ def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを�
 						datarow[VARS.daycolumn] += 1  # シート最下行の日付シリアル値に1を加えて翌月初日にする。
 						datarow[0] = prevs[1]  # 2月前の最低点を3月前の最低点に変更。
 						datarow[1] = prevs[2]  # 1月前の最低点を2月前の最低点に変更。
-						datarow[2] = min(i[0] for i in sheet[splittedrow:VARS.emptyrow, VARS.mincolumn].getDataArray() if i[0])  # 現シートの最低点を1月前の最低点にする。
+						datarow[2] = min([i[0] for i in sheet[splittedrow:VARS.emptyrow, VARS.mincolumn].getDataArray() if i[0]], default="")  # 現シートの最低点を1月前の最低点にする。
 						sheet[splittedrow, :VARS.emptycolumn].setDataArray((datarow,))  # 変更した最下行を1日目に代入。
-						datarange = sheet[splittedrow+1:VARS.emptyrow, :VARS.emptycolumn]  # 2日目以降のセル範囲。
-						datarange.clearContents(CellFlags.STRING+CellFlags.VALUE+CellFlags.DATETIME+CellFlags.FORMULA)  # 2日目以降の文字列、数値、日付、式をクリア。
-						datarange.setPropertyValue("CellBackColor", -1)  # 2日目以降の背景色をクリア。
+						sheet[splittedrow+1:VARS.emptyrow, :VARS.emptycolumn].clearContents(CellFlags.STRING+CellFlags.VALUE+CellFlags.DATETIME+CellFlags.FORMULA)  # 2日目以降の文字列、数値、日付、式をクリア。
+						sheet[splittedrow:VARS.emptyrow, :VARS.emptycolumn].setPropertyValue("CellBackColor", -1)  # 1日目以降の背景色をクリア。
 						for i in range(VARS.startcolumn, VARS.emptycolumn, 8)[::-1]:  # 降順に部位別の開始列インデックスをイテレート。
 							if not any(datarow[i:i+8]):  # 部位別のセルに空セルがある時。
 								sheet.removeRange(sheet[0, i:i+8].getRangeAddress(), delete_columns)  # その部位の列を削除。	
@@ -115,7 +114,8 @@ def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを�
 						sheet[splittedrow+1:splittedrow+daycount, :VARS.mincolumn].setPropertyValue("CellBackColor", commons.COLORS["silver"])  # 2日以降の前月の値のセルの背景色を付ける。	
 						prevs = sheet[VARS.splittedrow, :VARS.daycolumn].getDataArray()[0]  # 3月前の最低点のタプルと行の日の最低点を取得。
 						color = commons.COLORS["magenta3"] if not "" in prevs and prevs[0]<prevs[1]<prevs[2]<prevs[3] else -1  # ペナルティの時は最低点セルに背景色を付ける、そうでないなら背景色をクリアする。
-						sheet[splittedrow, VARS.mincolumn].setPropertyValue("CellBackColor", color)						
+						sheet[splittedrow, VARS.mincolumn].setPropertyValue("CellBackColor", color)		
+						colorizeDays(doc, functionaccess, datevalue)
 				elif txt=="部位追加":
 					if (c-VARS.startcolumn)%8==0:  # 部位の先頭列であることを確認する。
 						datarows = [("", "", "", "", "", "", "", "", "部位追加")]
@@ -161,6 +161,31 @@ def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを�
 							break	
 		return False  # セル編集モードにしない。	
 	return True  # セル編集モードにする。	シングルクリックは必ずTrueを返さないといけない。
+def colorizeDays(doc, functionaccess, startdatevalue):
+	y, m = [int(functionaccess.callFunction(i, (startdatevalue,))) for i in ("YEAR", "MONTH")]
+	holidays = commons.HOLIDAYS	
+	holidayindexes = set()
+	if y in holidays:
+		holidayindexes.update(VARS.splittedrow-1+i for i in holidays[y][m-1])  # 行インデックスに変換するして取得する。
+	startweekday = int(functionaccess.callFunction("WEEKDAY", (startdatevalue, 3)))  # 開始日の曜日を取得。月=0。
+	n = 6  # 日曜日の曜日番号。
+	sunindexes = set(range(VARS.splittedrow+(n-startweekday)%7, VARS.emptyrow, 7))  # 日曜日の列インデックスの集合。祝日と重ならないようにあとで使用する。	
+	holidayindexes.difference_update(sunindexes)  # 祝日インデックスから日曜日インデックスを除く。
+	n = 5  # 土曜日の曜日番号。
+	satindexes = set(range(VARS.splittedrow+(n-startweekday)%7, VARS.emptyrow, 7))  # 土曜日の列インデックスの集合。
+	VARS.sheet[VARS.splittedrow:VARS.emptyrow, VARS.daycolumn].setPropertyValues(("CellBackColor", "CharColor"), (-1, -1))  # 日付列の背景色と字の色をリセットする。
+	setRangesProperty = createSetRangesProperty(doc, VARS.daycolumn)
+	setRangesProperty(holidayindexes, ("CellBackColor", commons.COLORS["red3"]))
+	setRangesProperty(sunindexes, ("CharColor", commons.COLORS["red3"]))
+	setRangesProperty(satindexes, ("CharColor", commons.COLORS["skyblue"]))
+def createSetRangesProperty(doc, c): 
+	def setRangesProperty(rowindexes, prop):  # c列のrowindexesの行のプロパティを変更。prop: プロパティ名とその値のリスト。
+		cellranges = doc.createInstance("com.sun.star.sheet.SheetCellRanges")  # セル範囲コレクション。
+		if rowindexes:  
+			cellranges.addRangeAddresses([VARS.sheet[i, c].getRangeAddress() for i in rowindexes], False)  # セル範囲コレクションを取得。rowindexesが空要素だとエラーになる。
+			if len(cellranges):  # sheetcellrangesに要素がないときはsetPropertyValue()でエラーになるので要素の有無を確認する。
+				cellranges.setPropertyValue(*prop)  # セル範囲コレクションのプロパティを変更。
+	return setRangesProperty		
 def createCopySheet(xscriptcontext, year):	
 	desktop = xscriptcontext.getDesktop()
 	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 	
@@ -391,8 +416,8 @@ def reCalc(r, c):  # 部位別合計点と日の最低点を計算。r: 行イ�
 	datarange = sheet[r, :VARS.emptycolumn]  # インデックス0から1行すべてのデータのある範囲を取得。
 	datarow = list(datarange.getDataArray()[0])  # リストにしてデータ行を取得。
 	datarow[thisc+7] = "" if "" in datarow[thisc:thisc+7] else sum(datarow[thisc+1:thisc+7])  # 部位別合計を代入。「大きさ」は加算しない。部位の点数に空セルがあるときは部位別合計列をクリアする。
-	psum = [datarow[i] for i in range(VARS.startcolumn+7, VARS.emptycolumn, 8) if datarow[i]]  # 部位別合計のリスト。
-	datarow[VARS.mincolumn] = min(psum) if psum else ""  # 部位別合計の日の最低点を代入。部位別合計が一つもなければ空セルにする。
+	psum = (datarow[i] for i in range(VARS.startcolumn+7, VARS.emptycolumn, 8) if datarow[i])  # 部位別合計のジェネレーター。
+	datarow[VARS.mincolumn] = min(psum, default="")  # 部位別合計の日の最低点を代入。部位別合計が一つもなければ空セルにする。
 	datarange.setDataArray((datarow,))  # データ行をシートに戻す。
 	if datarow[VARS.mincolumn]:  # 日の最低点が空セルでない時。
 		prevs = sheet[VARS.splittedrow, :VARS.daycolumn].getDataArray()[0]  # 3月前の最低点のタプルと行の日の最低点を取得。

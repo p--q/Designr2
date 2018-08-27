@@ -135,7 +135,7 @@ def toOtherEntry(sheet, rangeaddress, edgerow, dest_row):  # 新規行挿入が�
 	sheet.queryIntersection(dest_rangeaddress).clearContents(511)  # 挿入した行の内容をすべてを削除。挿入セルは挿入した行の上のプロパティを引き継いでいるのでリセットしないといけない。
 	sourcerangeaddress = sourcerange.getRangeAddress()  # コピー元セル範囲アドレスを取得。行挿入後にアドレスを取得しないといけない。
 	sheet.moveRange(sheet[dest_row, 0].getCellAddress(), sourcerangeaddress)  # 行の内容を移動。			
-	sheet.removeRange(sourcerangeaddress, delete_rows)  # 移動したソース行を削除。		
+	sheet.removeRange(sourcerangeaddress, delete_rows)  # 移動したソース行を削除。	
 # 	
 # 	
 # 	
@@ -220,7 +220,6 @@ def entry19():
 	invokeMenuEntry(19)	
 def entry20():
 	invokeMenuEntry(20)	
-# ファイルの選択はこれ以降を使用する。ファイルが増えたら単に連番の関数を追加するだけで良い。
 def entry21():
 	invokeMenuEntry(21)	
 def entry22():
