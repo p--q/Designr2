@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # IDシートについて。import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
 import unohelper, os
-from indoc import commons, staticdialog
+from indoc import commons, staticdialog, ichiran
 from com.sun.star.awt import MouseButton, MessageBoxButtons, MessageBoxResults # 定数
 from com.sun.star.awt.MessageBoxType import QUERYBOX, WARNINGBOX  # enum
 from com.sun.star.beans import PropertyValue  # Struct
@@ -43,28 +43,30 @@ def activeSpreadsheetChanged(activationevent, xscriptcontext):  # シートが�
 	datarows[2] = "月更新"
 	datarows[-1] = "部位追加"
 	datarange.setDataArray((datarows,))  # ボタンになっているセルを修正した行をシートに戻す。
-	ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
-	smgr = ctx.getServiceManager()  # サービスマネージャーの取得。	
-	functionaccess = smgr.createInstanceWithContext("com.sun.star.sheet.FunctionAccess", ctx)  # シート関数利用のため。			
-	startdatevalue = int(sheet[splittedrow, VARS.daycolumn].getValue())  # シートの開始日のシリアル値を取得。
-	datevalues = [i for i in range(startdatevalue, startdatevalue+VARS.emptyrow-splittedrow)]
-	todayvalue = int(functionaccess.callFunction("TODAY", ()))  # 今日のシリアル値を整数で取得。floatで返る。
-	if todayvalue in datevalues:  # 今日の行が最終行より下にある時。
-		todayrow = splittedrow + datevalues.index(todayvalue)
-		for i in range(VARS.startcolumn, emptycolumn, 8):  # 部位別開始列をイテレート。
-			cellranges = sheet[:, i+7].queryContentCells(CellFlags.STRING+CellFlags.VALUE+CellFlags.FORMULA)  # 部位別合計列の文字列、数値、式が入っているセルに限定して抽出。
-			endrow = cellranges.getRangeAddresses()[-1].EndRow  # 列の最終行インデックスを取得。
-			if splittedrow<=endrow<todayrow:
-				enddatarows = sheet[endrow, i:i+8].getDataArray()  # 最終行のタプルを取得。
-				newdatarows = enddatarows*(todayrow-endrow)  # 最終行を複製。
-				sheet[endrow+1:todayrow+1, i:i+8].setDataArray(newdatarows)  # 最終行を今日の行までコピー。
-		sheet[splittedrow:VARS.emptyrow, VARS.mincolumn].setPropertyValue("CellBackColor", -1)	 # 最低点列の背景色をクリア。	
-		datarows = sheet[splittedrow:todayrow+1, :emptycolumn].getDataArray()  # 分割行から今日の行までの空列までのデータ行のタプルを取得。
-		prevs = datarows[0][:VARS.mincolumn]  # 3月前の最低点のタプルを取得。
-		cs = range(VARS.startcolumn+7, emptycolumn, 8)
-		mindatarows = [(min([d[i] for i in cs if not d[i]==""], default=""),) for d in datarows]  # 部位別合計列の最低点の行のタプルのリスト。
-		highlightPenaltyDays(xscriptcontext.getDocument(), prevs, mindatarows)
-		sheet[splittedrow:splittedrow+len(mindatarows), VARS.mincolumn].setDataArray(mindatarows)  # 日の最低点のセル範囲に代入。
+	if VARS.startcolumn<emptycolumn:  # 部位があるとき。
+		ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
+		smgr = ctx.getServiceManager()  # サービスマネージャーの取得。	
+		functionaccess = smgr.createInstanceWithContext("com.sun.star.sheet.FunctionAccess", ctx)  # シート関数利用のため。			
+		startdatevalue = int(sheet[splittedrow, VARS.daycolumn].getValue())  # シートの開始日のシリアル値を取得。
+		datevalues = [i for i in range(startdatevalue, startdatevalue+VARS.emptyrow-splittedrow)]  # シートの日付のシリアル値のリストを作成。
+		todayvalue = int(functionaccess.callFunction("TODAY", ()))  # 今日のシリアル値を整数で取得。floatで返る。
+		if todayvalue in datevalues:  # 今日がシリアル値のリストにある時。
+			todayrow = splittedrow + datevalues.index(todayvalue)  # 今日の行インデックスを取得。
+			for i in range(VARS.startcolumn, emptycolumn, 8):  # 部位別開始列をイテレート。
+				cellranges = sheet[:, i+7].queryContentCells(CellFlags.STRING+CellFlags.VALUE+CellFlags.FORMULA)  # 部位別合計列の文字列、数値、式が入っているセルに限定して抽出。
+				endrow = cellranges.getRangeAddresses()[-1].EndRow  # 列の最終行インデックスを取得。
+				if splittedrow<=endrow<todayrow:  # 部位別合計の最下行が今日の行より上にあるとき。
+					enddatarows = sheet[endrow, i:i+8].getDataArray()  # 最終行のタプルを取得。
+					newdatarows = enddatarows*(todayrow-endrow)  # 最終行を複製。
+					sheet[endrow+1:todayrow+1, i:i+8].setDataArray(newdatarows)  # 最終行を今日の行までコピー。
+			sheet[splittedrow:VARS.emptyrow, VARS.mincolumn].setPropertyValue("CellBackColor", -1)	 # 最低点列の背景色をクリア。	
+			datarows = sheet[splittedrow:todayrow+1, :emptycolumn].getDataArray()  # 分割行から今日の行までの空列までのデータ行のタプルを取得。
+			prevs = datarows[0][:VARS.mincolumn]  # 3月前の最低点のタプルを取得。
+			cs = range(VARS.startcolumn+7, emptycolumn, 8)
+			mindatarows = [(min([d[i] for i in cs if not d[i]==""], default=""),) for d in datarows]  # 部位別合計列の最低点の行のタプルのリスト。
+			highlightPenaltyDays(xscriptcontext.getDocument(), prevs, mindatarows)
+			sheet[splittedrow:splittedrow+len(mindatarows), VARS.mincolumn].setDataArray(mindatarows)  # 日の最低点のセル範囲に代入。
+			sheet[todayrow+1:VARS.emptyrow, VARS.startcolumn:emptycolumn].clearContents(CellFlags.STRING+CellFlags.VALUE+CellFlags.DATETIME+CellFlags.FORMULA)  # 今日の行より下のセルの内容をクリア。
 def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを押した時。controllerにコンテナウィンドウはない。
 	if enhancedmouseevent.ClickCount==2 and enhancedmouseevent.Buttons==MouseButton.LEFT:  # 左ダブルクリックの時。まずselectionChanged()が発火している。
 		selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
@@ -124,6 +126,19 @@ def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを�
 						sheet[0, c:endedge].getColumns().setPropertyValue("Width", 680)  # 列幅を設定。
 						sheet[0, c:endedge].merge(True)  # 行インデックス0を結合。
 						VARS.setSheet(sheet)  # 逐次変化する値を取得し直す。VARS.emptycolumnが変化する。
+						idtxt = sheet[0, VARS.daycolumn].getString()
+						ichiransheet = doc.getSheets()["一覧"]
+						ichiranvars = ichiran.VARS
+						ichiranvars.setSheet(ichiransheet)
+						searchdescriptor = ichiransheet.createSearchDescriptor()
+						searchdescriptor.setSearchString(idtxt)  # 戻り値はない。IDの文字列が入っているセルを探す。
+						idcell = ichiransheet[ichiranvars.splittedrow:ichiranvars.emptyrow, ichiranvars.idcolumn].findFirst(searchdescriptor)  # 見つからなかった時はNoneが返る?。
+						if idcell:
+							startdatevalue = (ichiransheet[idcell.getCellAddress().Row, ichiranvars.startdaycolumn].getValue(),)  # 一覧シートにある開始日のシリアル値を行で取得。
+							datevalues = sheet[VARS.splittedrow:VARS.emptyrow, VARS.daycolumn].getDataArray()
+							if startdatevalue in datevalues:  # 一覧シートの開始日と一致する日付があるときはその行の上まで背景色をつける。
+								startrow = VARS.splittedrow+datevalues.index(startdatevalue)+1
+								sheet[VARS.splittedrow:startrow, c:c+8].setPropertyValue("CellBackColor", commons.COLORS["silver"])  # 背景色をつける
 					else:  # 部位の先頭列でないときはエラーメッセージを出す。
 						msg = "部位の先頭列ではありません。"
 						commons.showErrorMessageBox(controller, msg)

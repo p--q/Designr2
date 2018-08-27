@@ -31,6 +31,10 @@ class Ichiran():  # シート固有の値。
 		cellranges = sheet[:, self.idcolumn].queryContentCells(CellFlags.STRING+CellFlags.VALUE)  # ID列の文字列が入っているセルに限定して抽出。数値の時もありうる。
 		self.emptyrow = cellranges.getRangeAddresses()[-1].EndRow + 1  # ID列の最終行インデックス+1を取得。
 VARS = Ichiran()
+def activeSpreadsheetChanged(activationevent, xscriptcontext):  # シートがアクティブになった時。ドキュメントを開いた時は発火しない。よく誤入力されるセルを修正する。つまりボタンになっているセルの修正。
+	sheet = activationevent.ActiveSheet  # アクティブになったシートを取得。
+	datarows = ("終了を消去", "", "印刷", "外挿印刷", "過去月"),
+	sheet[0, :len(datarows[0])].setDataArray(datarows)
 def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを押した時。controllerにコンテナウィンドウはない。
 	if enhancedmouseevent.ClickCount==2 and enhancedmouseevent.Buttons==MouseButton.LEFT:  # 左ダブルクリックの時。まずselectionChanged()が発火している。
 		selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
@@ -53,7 +57,13 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 			
 				
 			pass
-	elif txt=="全印刷":
+	elif txt=="印刷":
+		doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 
+		
+		
+		
+		
+	elif txt=="外挿印刷":
 		
 		pass
 	elif txt=="過去月":
@@ -119,9 +129,9 @@ def wClickPt(enhancedmouseevent, xscriptcontext):
 			else:
 				return True  # セル編集モードにする。						
 	elif c==VARS.startdaycolumn:  # 開始日列の時。
-		datedialog.createDialog(enhancedmouseevent, xscriptcontext, "開始日", "YYYY-M")			
+		datedialog.createDialog(enhancedmouseevent, xscriptcontext, "開始日", "YYYY-M-D")			
 	elif c==VARS.enddaycolumn:  # 終了日列の時。
-		datedialog.createDialog(enhancedmouseevent, xscriptcontext, "終了日", "YYYY-M")		
+		datedialog.createDialog(enhancedmouseevent, xscriptcontext, "終了日", "YYYY-M-D")		
 	return False  # セル編集モードにしない。	
 def createSetRangesProperty(doc, sheet, c): 
 	def setRangesProperty(rowindexes, prop):  # c列のrowindexesの行のプロパティを変更。prop: プロパティ名とその値のリスト。
