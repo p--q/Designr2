@@ -62,6 +62,21 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 			pass
 	elif txt=="印刷":
 		
+		
+		# 一覧シートとテンプレートシートを最初をに持ってきてそれ以降のシートをすべて選択。
+		# ドキュメント印刷。
+		
+		
+		for i in doc.getSheets():  # シートコレクションを取得。		
+			
+			
+			
+		
+		printareas = sheet[0, VARS.]
+		
+		
+		VARS.sheet.setPrintAreas()
+		
 		# idシートの範囲を限定して印刷する。
 		
 		pass
