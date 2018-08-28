@@ -51,7 +51,7 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 	selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
 	txt = selection.getString()  # クリックしたセルの文字列を取得。	
 	if txt=="終了を消去":
-		msg = "黒行上の行をすべて削除しますか?"
+		msg = "黒行上の行をすべて削除しますか?\n終了日のないものは削除しません。"
 		componentwindow = doc.getCurrentController().ComponentWindow
 		msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, QUERYBOX, MessageBoxButtons.BUTTONS_OK_CANCEL+MessageBoxButtons.DEFAULT_BUTTON_CANCEL, "myRs", msg)
 		if msgbox.execute()==MessageBoxResults.OK:	
