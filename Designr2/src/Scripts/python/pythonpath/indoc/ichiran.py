@@ -5,7 +5,7 @@ import os, unohelper, glob
 # from itertools import chain
 from indoc import commons, datedialog, points, transientdialog
 from com.sun.star.awt import MouseButton, MessageBoxButtons, MessageBoxResults # 定数
-from com.sun.star.awt.MessageBoxType import QUERYBOX  # enum
+from com.sun.star.awt.MessageBoxType import INFOBOX, QUERYBOX  # enum
 from com.sun.star.beans import PropertyValue  # Struct
 from com.sun.star.i18n.TransliterationModulesNew import FULLWIDTH_HALFWIDTH  # enum
 from com.sun.star.lang import Locale  # Struct
@@ -14,7 +14,6 @@ from com.sun.star.sheet import CellFlags  # 定数
 # from com.sun.star.table.CellHoriJustify import LEFT  # enum
 from com.sun.star.ui import ActionTriggerSeparatorType  # 定数
 from com.sun.star.ui.ContextMenuInterceptorAction import EXECUTE_MODIFIED  # enum
-from ipykernel.tests.test_serialize import point
 class Ichiran():  # シート固有の値。
 	def __init__(self):
 		self.menurow = 0
@@ -36,6 +35,9 @@ def activeSpreadsheetChanged(activationevent, xscriptcontext):  # シートが�
 	sheet = activationevent.ActiveSheet  # アクティブになったシートを取得。
 	datarows = ("", "月更新", "印刷", "月末印刷", "過去月"),
 	sheet[0, :len(datarows[0])].setDataArray(datarows)
+	sheets = xscriptcontext.getDocument().getSheets()
+	if "config" in sheets:  # configシートがある時。
+		sheets["config"].setPropertyValue("IsVisible", False)  # 非表示シートにする。印刷のときページ数に数えないため。
 def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを押した時。controllerにコンテナウィンドウはない。
 	if enhancedmouseevent.ClickCount==2 and enhancedmouseevent.Buttons==MouseButton.LEFT:  # 左ダブルクリックの時。まずselectionChanged()が発火している。
 		selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
@@ -63,59 +65,36 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 				
 			pass
 	elif txt=="印刷":  # 一覧と00000000以外のシートをすべて印刷。
-		unprintingsheetnames = "config", "一覧", "00000000"  # 印刷しないシート名。
-		ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
-		smgr = ctx.getServiceManager()  # サービスマネージャーの取得。		
-		dispatcher = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx)			
 		pointsvars = points.VARS
 		sheets = doc.getSheets()
-		for sheet in sheets:  # 全シートをイテレート。
-			sheetname = sheet.getName()
-			if sheetname.startswith("00000000"):  # テンプレートの時は何もしない。
-				sheet.setPropertyValue("IsVisible", False)
-				continue
+		for i in sheets:  # 全シートをイテレート。非表示シートもイテレートされる。
+			sheetname = i.getName()  # シート名を取得。
+			if sheetname.startswith("00000000"):  # テンプレートの時。
+				sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
 			elif sheetname.isdigit():  # シート名が数字のみの時のみ。		
-				pointsvars.setSheet(sheet)
-				sheet[0, :pointsvars.daycolumn].clearContents(CellFlags.STRING)
-				sheet.setPrintAreas((sheet[:pointsvars.emptyrow, :pointsvars.emptycolumn].getRangeAddress(),))
-		[sheets[i].setPropertyValue("IsVisible", False) for i in unprintingsheetnames if i in sheets]  # 印刷しないシートを非表示にする。
-		dispatcher.executeDispatch(controller.getFrame(), ".uno:TableSelectAll", "", 0, ())  # すべてのシートを選択。非表示シートは選択されない。	
-		[sheets[i].setPropertyValue("IsVisible", True) for i in unprintingsheetnames[1:] if i in sheets]  # config以外のシートを表示する。	
-		doc.print(())  # 選択したシートを印刷。
-		
-				
-				
-				
-				
-		
-# 		sheets.moveByName("00000000", 0)
-# 		sheets.moveByName("一覧", 0)  # 一覧、00000000、、、の順にシートを並べ直す。
-# 		startidx = 2
-# 		if "config" in sheets:
-# 			sheets.moveByName("config", 0)  # 一覧、00000000、config、、の順にシートを並べ直す。
-# 			startidx = 3
-# 		for sheet in sheets[startidx:]:
-# 			sheetvars = sheet.
-# 			sheet[:]
-		
-		
-# 		import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
-		
-# 		controller.select(sheets[3:])  # 一覧と00000000、config以外のシートを選択。
-# 		
-
-		
-# 		PropertyValue 
-		
-		
-# 		  # doc.print(())では何も反応がない。
+				pointsvars.setSheet(i)  # シートによって変化する値を取得。
+				i[0, :pointsvars.daycolumn].clearContents(CellFlags.STRING)  # ボタンセルを消去する。印刷しないので。シートをアクティブしたときに再度ボタンセルに文字列を代入する。
+				i.setPrintAreas((i[:pointsvars.emptyrow, :pointsvars.emptycolumn].getRangeAddress(),))  # 印刷範囲を設定。			
+			else:  # シート名が数字以外のシートはすべて先頭にもってくる。
+				sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
+		sheets.moveByName("一覧", 0)  # 一覧シートを一番先頭にする。
+		printPointsSheets(xscriptcontext)
 	elif txt=="月末印刷":
-		
-		#  月末まで各部位の最終行をコピーしてから印刷。
-		
-		# コピーした数値はidシートをアクティブにしたときに本日より下行はクリアする。
-		
-		pass
+		pointsvars = points.VARS
+		sheets = doc.getSheets()
+		for i in sheets:  # 全シートをイテレート。非表示シートもイテレートされる。
+			sheetname = i.getName()  # シート名を取得。
+			if sheetname.startswith("00000000"):  # テンプレートの時。
+				sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
+			elif sheetname.isdigit():  # シート名が数字のみの時のみ。		
+				pointsvars.setSheet(i)  # シートによって変化する値を取得。
+				points.fillToEndDayRow(doc, pointsvars.emptyrow-1)  # 最終日まで埋める。
+				i[0, :pointsvars.daycolumn].clearContents(CellFlags.STRING)  # ボタンセルを消去する。印刷しないので。シートをアクティブしたときに再度ボタンセルに文字列を代入する。
+				i.setPrintAreas((i[:pointsvars.emptyrow, :pointsvars.emptycolumn].getRangeAddress(),))  # 印刷範囲を設定。			
+			else:  # シート名が数字以外のシートはすべて先頭にもってくる。
+				sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
+		sheets.moveByName("一覧", 0)  # 一覧シートを一番先頭にする。		
+		printPointsSheets(xscriptcontext)
 	elif txt=="過去月":
 		dirpath = os.path.dirname(unohelper.fileUrlToSystemPath(doc.getURL()))  # このドキュメントのあるディレクトリのフルパスを取得。
 		defaultrows = [os.path.basename(i).split(".")[0] for i in glob.iglob(os.path.join(dirpath, "*", "*年*月.ods"), recursive=True)]  # *年*月のみリストに取得。
@@ -126,6 +105,23 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 			msg = "過去のファイルはありません。"
 			commons.showErrorMessageBox(controller, msg)
 	return False  # セル編集モードにしない。			
+def printPointsSheets(xscriptcontext):
+	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 
+	controller = doc.getCurrentController()
+	printername = ""
+	for i in doc.getPrinter():  # 現在のプリンターのPropertyValueをイテレート。
+		if i.Name=="Name":  # プリンター名の時。
+			printername = i.Value
+	ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
+	smgr = ctx.getServiceManager()  # サービスマネージャーの取得。		
+	dispatcher = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx)		
+	dispatcher.executeDispatch(controller.getFrame(), ".uno:TableSelectAll", "", 0, ())  # すべての表示シートを選択。非表示シートは選択されない。	
+	propertyvalues = PropertyValue(Name="Pages", Value="3-"),	
+	doc.print(propertyvalues)  # 一覧シート、00000000シート、を除いた3ページ以降のみ印刷。
+	msg = "{}で印刷しました。".format(printername)
+	componentwindow = controller.ComponentWindow
+	msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, INFOBOX, MessageBoxButtons.BUTTONS_OK, "myRs", msg)
+	msgbox.execute()
 def callback_wClickGrid(mouseevent, xscriptcontext, gridcelldata):  # gridcelldata: グリッドコントロールのダブルクリックしたセルのデータ。	
 	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 	
 	dirpath = os.path.dirname(unohelper.fileUrlToSystemPath(doc.getURL()))  # このドキュメントのあるディレクトリのフルパスを取得。	
