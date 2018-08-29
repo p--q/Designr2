@@ -14,6 +14,7 @@ from com.sun.star.sheet import CellFlags  # 定数
 # from com.sun.star.table.CellHoriJustify import LEFT  # enum
 from com.sun.star.ui import ActionTriggerSeparatorType  # 定数
 from com.sun.star.ui.ContextMenuInterceptorAction import EXECUTE_MODIFIED  # enum
+from ipykernel.tests.test_serialize import point
 class Ichiran():  # シート固有の値。
 	def __init__(self):
 		self.menurow = 0
@@ -62,24 +63,26 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 				
 			pass
 	elif txt=="印刷":  # 一覧と00000000以外のシートをすべて印刷。
-		pointsvars = points.VARS
-		for sheet in doc.getSheets():
-			sheetname = sheet.getName()
-			if sheetname.startswith("00000000"):  # テンプレートの時は何もしない。
-				continue
-			elif sheetname.isdigit():  # シート名が数字のみの時IDシート。		
-				pointsvars.setSheet(sheet)
-				printareas = sheet[1:pointsvars.splittedrow+1, :pointsvars.daycolumn],\
-							sheet[:pointsvars.emptyrow, pointsvars.daycolumn:pointsvars.emptycolumn]
-				sheet.setPrintAreas(i.getRangeAddress() for i in printareas)
+		unprintingsheetnames = "config", "一覧", "00000000"  # 印刷しないシート名。
 		ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
 		smgr = ctx.getServiceManager()  # サービスマネージャーの取得。		
-		dispatcher = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx)	
+		dispatcher = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx)			
+		pointsvars = points.VARS
+		sheets = doc.getSheets()
+		for sheet in sheets:  # 全シートをイテレート。
+			sheetname = sheet.getName()
+			if sheetname.startswith("00000000"):  # テンプレートの時は何もしない。
+				sheet.setPropertyValue("IsVisible", False)
+				continue
+			elif sheetname.isdigit():  # シート名が数字のみの時のみ。		
+				pointsvars.setSheet(sheet)
+				sheet[0, :pointsvars.daycolumn].clearContents(CellFlags.STRING)
+				sheet.setPrintAreas((sheet[:pointsvars.emptyrow, :pointsvars.emptycolumn].getRangeAddress(),))
+		[sheets[i].setPropertyValue("IsVisible", False) for i in unprintingsheetnames if i in sheets]  # 印刷しないシートを非表示にする。
+		dispatcher.executeDispatch(controller.getFrame(), ".uno:TableSelectAll", "", 0, ())  # すべてのシートを選択。非表示シートは選択されない。	
+		[sheets[i].setPropertyValue("IsVisible", True) for i in unprintingsheetnames[1:] if i in sheets]  # config以外のシートを表示する。	
+		doc.print(())  # 選択したシートを印刷。
 		
-		dispatcher.executeDispatch(controller.getFrame(), ".uno:TableSelectAll", "", 0, ())		
-		
-			
-		doc.print(())		
 				
 				
 				
