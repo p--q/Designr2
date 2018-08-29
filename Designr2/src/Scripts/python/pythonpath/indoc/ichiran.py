@@ -6,7 +6,7 @@ import os, unohelper, glob
 from indoc import commons, datedialog, points, transientdialog
 from com.sun.star.awt import MouseButton, MessageBoxButtons, MessageBoxResults # 定数
 from com.sun.star.awt.MessageBoxType import QUERYBOX  # enum
-# from com.sun.star.beans import PropertyValue  # Struct
+from com.sun.star.beans import PropertyValue  # Struct
 from com.sun.star.i18n.TransliterationModulesNew import FULLWIDTH_HALFWIDTH  # enum
 from com.sun.star.lang import Locale  # Struct
 from com.sun.star.sheet import CellFlags  # 定数
@@ -33,7 +33,7 @@ class Ichiran():  # シート固有の値。
 VARS = Ichiran()
 def activeSpreadsheetChanged(activationevent, xscriptcontext):  # シートがアクティブになった時。ドキュメントを開いた時は発火しない。よく誤入力されるセルを修正する。つまりボタンになっているセルの修正。
 	sheet = activationevent.ActiveSheet  # アクティブになったシートを取得。
-	datarows = ("終了を消去", "", "印刷", "月末印刷", "過去月"),
+	datarows = ("", "月更新", "印刷", "月末印刷", "過去月"),
 	sheet[0, :len(datarows[0])].setDataArray(datarows)
 def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを押した時。controllerにコンテナウィンドウはない。
 	if enhancedmouseevent.ClickCount==2 and enhancedmouseevent.Buttons==MouseButton.LEFT:  # 左ダブルクリックの時。まずselectionChanged()が発火している。
@@ -50,9 +50,10 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 
 	selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
 	txt = selection.getString()  # クリックしたセルの文字列を取得。	
-	if txt=="終了を消去":
-		msg = "黒行上の行をすべて削除しますか?\n終了日のないものは削除しません。"
-		componentwindow = doc.getCurrentController().ComponentWindow
+	controller = doc.getCurrentController()
+	if txt=="月更新":
+		msg = "全シートの月を更新します。\n全部位終了患者は削除します。"
+		componentwindow = controller.ComponentWindow
 		msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, QUERYBOX, MessageBoxButtons.BUTTONS_OK_CANCEL+MessageBoxButtons.DEFAULT_BUTTON_CANCEL, "myRs", msg)
 		if msgbox.execute()==MessageBoxResults.OK:	
 			
@@ -60,27 +61,51 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 			# そろっていないものは残して、まとめて警告をだす。
 				
 			pass
-	elif txt=="印刷":
+	elif txt=="印刷":  # 一覧と00000000以外のシートをすべて印刷。
+		pointsvars = points.VARS
+		for sheet in doc.getSheets():
+			sheetname = sheet.getName()
+			if sheetname.startswith("00000000"):  # テンプレートの時は何もしない。
+				continue
+			elif sheetname.isdigit():  # シート名が数字のみの時IDシート。		
+				pointsvars.setSheet(sheet)
+				printareas = sheet[1:pointsvars.splittedrow+1, :pointsvars.daycolumn],\
+							sheet[:pointsvars.emptyrow, pointsvars.daycolumn:pointsvars.emptycolumn]
+				sheet.setPrintAreas(i.getRangeAddress() for i in printareas)
+		ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
+		smgr = ctx.getServiceManager()  # サービスマネージャーの取得。		
+		dispatcher = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx)	
 		
+		dispatcher.executeDispatch(controller.getFrame(), ".uno:TableSelectAll", "", 0, ())		
 		
-		# 一覧シートとテンプレートシートを最初をに持ってきてそれ以降のシートをすべて選択。
-		# ドキュメント印刷。
-		
-		
-		for i in doc.getSheets():  # シートコレクションを取得。		
 			
-			
-			
+		doc.print(())		
+				
+				
+				
+				
 		
-		printareas = sheet[0, VARS.]
+# 		sheets.moveByName("00000000", 0)
+# 		sheets.moveByName("一覧", 0)  # 一覧、00000000、、、の順にシートを並べ直す。
+# 		startidx = 2
+# 		if "config" in sheets:
+# 			sheets.moveByName("config", 0)  # 一覧、00000000、config、、の順にシートを並べ直す。
+# 			startidx = 3
+# 		for sheet in sheets[startidx:]:
+# 			sheetvars = sheet.
+# 			sheet[:]
 		
 		
-		VARS.sheet.setPrintAreas()
+# 		import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
 		
-		# idシートの範囲を限定して印刷する。
+# 		controller.select(sheets[3:])  # 一覧と00000000、config以外のシートを選択。
+# 		
+
 		
-		pass
+# 		PropertyValue 
 		
+		
+# 		  # doc.print(())では何も反応がない。
 	elif txt=="月末印刷":
 		
 		#  月末まで各部位の最終行をコピーしてから印刷。
@@ -96,7 +121,7 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 			transientdialog.createDialog(xscriptcontext, txt, defaultrows, enhancedmouseevent=enhancedmouseevent, fixedtxt=txt, callback=callback_wClickGrid)  # fixedtxtでボタン名を入れなおしている(無駄)。
 		else:
 			msg = "過去のファイルはありません。"
-			commons.showErrorMessageBox(doc.getCurrentController(), msg)
+			commons.showErrorMessageBox(controller, msg)
 	return False  # セル編集モードにしない。			
 def callback_wClickGrid(mouseevent, xscriptcontext, gridcelldata):  # gridcelldata: グリッドコントロールのダブルクリックしたセルのデータ。	
 	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 	

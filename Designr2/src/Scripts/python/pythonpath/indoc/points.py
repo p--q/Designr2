@@ -52,21 +52,27 @@ def activeSpreadsheetChanged(activationevent, xscriptcontext):  # シートが�
 		todayvalue = int(functionaccess.callFunction("TODAY", ()))  # 今日のシリアル値を整数で取得。floatで返る。
 		if todayvalue in datevalues:  # 今日がシリアル値のリストにある時。
 			todayrow = splittedrow + datevalues.index(todayvalue)  # 今日の行インデックスを取得。
-			for i in range(VARS.startcolumn, emptycolumn, 8):  # 部位別開始列をイテレート。
-				cellranges = sheet[:, i+7].queryContentCells(CellFlags.STRING+CellFlags.VALUE+CellFlags.FORMULA)  # 部位別合計列の文字列、数値、式が入っているセルに限定して抽出。
-				endrow = cellranges.getRangeAddresses()[-1].EndRow  # 列の最終行インデックスを取得。
-				if splittedrow<=endrow<todayrow:  # 部位別合計の最下行が今日の行より上にあるとき。
-					enddatarows = sheet[endrow, i:i+8].getDataArray()  # 最終行のタプルを取得。
-					newdatarows = enddatarows*(todayrow-endrow)  # 最終行を複製。
-					sheet[endrow+1:todayrow+1, i:i+8].setDataArray(newdatarows)  # 最終行を今日の行までコピー。
-			sheet[splittedrow:VARS.emptyrow, VARS.mincolumn].setPropertyValue("CellBackColor", -1)	 # 最低点列の背景色をクリア。	
-			datarows = sheet[splittedrow:todayrow+1, :emptycolumn].getDataArray()  # 分割行から今日の行までの空列までのデータ行のタプルを取得。
-			prevs = datarows[0][:VARS.mincolumn]  # 3月前の最低点のタプルを取得。
-			cs = range(VARS.startcolumn+7, emptycolumn, 8)
-			mindatarows = [(min([d[i] for i in cs if not d[i]==""], default=""),) for d in datarows]  # 部位別合計列の最低点の行のタプルのリスト。
-			highlightPenaltyDays(xscriptcontext.getDocument(), prevs, mindatarows)
-			sheet[splittedrow:splittedrow+len(mindatarows), VARS.mincolumn].setDataArray(mindatarows)  # 日の最低点のセル範囲に代入。
-			sheet[todayrow+1:VARS.emptyrow, VARS.startcolumn:emptycolumn].clearContents(CellFlags.STRING+CellFlags.VALUE+CellFlags.DATETIME+CellFlags.FORMULA)  # 今日の行より下のセルの内容をクリア。
+		elif todayvalue>datevalues[-1]:  # シートの最終日がすでに過ぎた日の時は最終行までコピーする。
+			todayrow = splittedrow + len(datevalues) - 1
+		else:  # 今日がシートの日付より前のときは何もしない。
+			return	
+		for i in range(VARS.startcolumn, emptycolumn, 8):  # 部位別開始列をイテレート。
+			cellranges = sheet[:, i+7].queryContentCells(CellFlags.STRING+CellFlags.VALUE+CellFlags.FORMULA)  # 部位別合計列の文字列、数値、式が入っているセルに限定して抽出。
+			endrow = cellranges.getRangeAddresses()[-1].EndRow  # 列の最終行インデックスを取得。
+			if splittedrow<=endrow<todayrow:  # 部位別合計の最下行が今日の行より上にあるとき。
+				if sheet[endrow+1, i+7].getPropertyValue("CellBackColor")>0:  # 最終行下行の部位別行合計に背景色があるとき。
+					continue
+				enddatarows = sheet[endrow, i:i+8].getDataArray()  # 最終行のタプルを取得。
+				newdatarows = enddatarows*(todayrow-endrow)  # 最終行を複製。
+				sheet[endrow+1:todayrow+1, i:i+8].setDataArray(newdatarows)  # 最終行を今日の行までコピー。
+		sheet[splittedrow:VARS.emptyrow, VARS.mincolumn].setPropertyValue("CellBackColor", -1)	 # 最低点列の背景色をクリア。	
+		datarows = sheet[splittedrow:todayrow+1, :emptycolumn].getDataArray()  # 分割行から今日の行までの空列までのデータ行のタプルを取得。
+		prevs = datarows[0][:VARS.mincolumn]  # 3月前の最低点のタプルを取得。
+		cs = range(VARS.startcolumn+7, emptycolumn, 8)
+		mindatarows = [(min([d[i] for i in cs if not d[i]==""], default=""),) for d in datarows]  # 部位別合計列の最低点の行のタプルのリスト。
+		highlightPenaltyDays(xscriptcontext.getDocument(), prevs, mindatarows)
+		sheet[splittedrow:splittedrow+len(mindatarows), VARS.mincolumn].setDataArray(mindatarows)  # 日の最低点のセル範囲に代入。
+		sheet[todayrow+1:VARS.emptyrow, VARS.startcolumn:emptycolumn].clearContents(CellFlags.STRING+CellFlags.VALUE+CellFlags.DATETIME+CellFlags.FORMULA)  # 今日の行より下のセルの内容をクリア。
 def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを押した時。controllerにコンテナウィンドウはない。
 	if enhancedmouseevent.ClickCount==2 and enhancedmouseevent.Buttons==MouseButton.LEFT:  # 左ダブルクリックの時。まずselectionChanged()が発火している。
 		selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
