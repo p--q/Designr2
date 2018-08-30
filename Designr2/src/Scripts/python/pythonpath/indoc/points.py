@@ -74,7 +74,7 @@ def fillToEndDayRow(doc, enddayrow):  # 各部位について最終行をenddayr
 	sheet[splittedrow:VARS.emptyrow, VARS.mincolumn].setPropertyValue("CellBackColor", -1)	 # 最低点列の背景色をクリア。	
 	datarows = sheet[splittedrow:enddayrow+1, :emptycolumn].getDataArray()  # 分割行から今日の行までの空列までのデータ行のタプルを取得。
 	prevs = datarows[0][:VARS.mincolumn]  # 3月前の最低点のタプルを取得。
-	cs = range(VARS.startcolumn+7, emptycolumn, 8)
+	cs = range(VARS.startcolumn+7, emptycolumn, 8)  # 部位別合計列インデックスのジェネレーター。
 	mindatarows = [(min([d[i] for i in cs if not d[i]==""], default=""),) for d in datarows]  # 部位別合計列の最低点の行のタプルのリスト。
 	highlightPenaltyDays(doc, prevs, mindatarows)
 	sheet[splittedrow:splittedrow+len(mindatarows), VARS.mincolumn].setDataArray(mindatarows)  # 日の最低点のセル範囲に代入。		

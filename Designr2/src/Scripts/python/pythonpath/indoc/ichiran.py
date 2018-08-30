@@ -33,7 +33,7 @@ class Ichiran():  # シート固有の値。
 VARS = Ichiran()
 def activeSpreadsheetChanged(activationevent, xscriptcontext):  # シートがアクティブになった時。ドキュメントを開いた時は発火しない。よく誤入力されるセルを修正する。つまりボタンになっているセルの修正。
 	sheet = activationevent.ActiveSheet  # アクティブになったシートを取得。
-	datarows = ("", "月更新", "印刷", "月末印刷", "過去月"),
+	datarows = ("全部位終了消去", "", "印刷", "月末印刷", "過去月"),
 	sheet[0, :len(datarows[0])].setDataArray(datarows)
 	sheets = xscriptcontext.getDocument().getSheets()
 	if "config" in sheets:  # configシートがある時。
@@ -54,19 +54,34 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 	selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
 	txt = selection.getString()  # クリックしたセルの文字列を取得。	
 	controller = doc.getCurrentController()
-	if txt=="月更新":
-		msg = "全シートの月を更新します。\n全部位終了患者は削除します。"
+	pointsvars = points.VARS
+	sheets = doc.getSheets()	
+	if txt=="全部位終了消去":
+		msg = "全部位終了しているシートを削除します。\n削除したシートは年月.odsファイルに移動します。"
 		componentwindow = controller.ComponentWindow
 		msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, QUERYBOX, MessageBoxButtons.BUTTONS_OK_CANCEL+MessageBoxButtons.DEFAULT_BUTTON_CANCEL, "myRs", msg)
 		if msgbox.execute()==MessageBoxResults.OK:	
-			
-			# 開始日から終了日の月までのシートが揃っているものだけ削除する。
-			# そろっていないものは残して、まとめて警告をだす。
-				
-			pass
+			ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
+			smgr = ctx.getServiceManager()  # サービスマネージャーの取得。				
+			functionaccess = smgr.createInstanceWithContext("com.sun.star.sheet.FunctionAccess", ctx)  # シート関数利用のため。		
+			startcolumnidx = pointsvars.startcolumn + 7
+			splittedrow = pointsvars.splittedrow
+			daycolumn = pointsvars.daycolumn
+			for i in sheets:  # 全シートをイテレート。非表示シートもイテレートされる。
+				sheetname = i.getName()  # シート名を取得。
+				if sheetname.startswith("00000000"):  # テンプレートの時。
+					sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
+				elif sheetname.isdigit():  # シート名が数字のみの時のみ。		
+					pointsvars.setSheet(i)  # シートによって変化する値を取得。
+					for j in range(startcolumnidx, pointsvars.emptycolumn, 8):  # 部位別合計列インデックスのジェネレーター。			
+						if i[pointsvars.emptyrow-1, j].getPropertyValue("CellBackColor")==-1:  # 最終日の部位別合計列セルに背景色がない時。
+							break
+					else:  # for文中でbreakしなかった時は最終日の部位別合計のすべてに背景色があるか、部位が一つもない時。
+						datevalue = i[splittedrow, daycolumn].getValue()
+						y, m = [int(functionaccess.callFunction(j, (datevalue,))) for j in ("YEAR", "MONTH")]  # 最終行の日付セルの年と月を取得。	
+						points.createCopySheet(xscriptcontext, y)(sheetname, m)  # 現在のシートを年月名のファイルにコピーする。
+						sheets.removeByName(sheetname)
 	elif txt=="印刷":  # 一覧と00000000以外のシートをすべて印刷。
-		pointsvars = points.VARS
-		sheets = doc.getSheets()
 		for i in sheets:  # 全シートをイテレート。非表示シートもイテレートされる。
 			sheetname = i.getName()  # シート名を取得。
 			if sheetname.startswith("00000000"):  # テンプレートの時。
@@ -80,12 +95,11 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 		sheets.moveByName("一覧", 0)  # 一覧シートを一番先頭にする。
 		printPointsSheets(xscriptcontext)
 	elif txt=="月末印刷":
-		pointsvars = points.VARS
-		sheets = doc.getSheets()
 		for i in sheets:  # 全シートをイテレート。非表示シートもイテレートされる。
 			sheetname = i.getName()  # シート名を取得。
 			if sheetname.startswith("00000000"):  # テンプレートの時。
 				sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
+				i.setPrintAreas((i[0, 0].getRangeAddress(),))  # 印刷範囲を設定。印刷しないページは1ページで収まるようにする。	
 			elif sheetname.isdigit():  # シート名が数字のみの時のみ。		
 				pointsvars.setSheet(i)  # シートによって変化する値を取得。
 				points.fillToEndDayRow(doc, pointsvars.emptyrow-1)  # 最終日まで埋める。
@@ -93,6 +107,7 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 				i.setPrintAreas((i[:pointsvars.emptyrow, :pointsvars.emptycolumn].getRangeAddress(),))  # 印刷範囲を設定。			
 			else:  # シート名が数字以外のシートはすべて先頭にもってくる。
 				sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
+				i.setPrintAreas((i[0, 0].getRangeAddress(),))  # 印刷範囲を設定。印刷しないページは1ページで収まるようにする。	
 		sheets.moveByName("一覧", 0)  # 一覧シートを一番先頭にする。		
 		printPointsSheets(xscriptcontext)
 	elif txt=="過去月":
@@ -107,6 +122,7 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 	return False  # セル編集モードにしない。			
 def printPointsSheets(xscriptcontext):
 	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 
+	doc.getStyleFamilies()["PageStyles"]["Default"].setPropertyValues(("HeaderIsOn", "FooterIsOn"), (False, False))  # ヘッダーとフッターを付けない。
 	controller = doc.getCurrentController()
 	printername = ""
 	for i in doc.getPrinter():  # 現在のプリンターのPropertyValueをイテレート。
