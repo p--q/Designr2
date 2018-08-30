@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 # 一覧シートについて。import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
 import os, unohelper, glob
-# from itertools import chain
 from indoc import commons, datedialog, points, transientdialog
 from com.sun.star.awt import MouseButton, MessageBoxButtons, MessageBoxResults # 定数
 from com.sun.star.awt.MessageBoxType import INFOBOX, QUERYBOX  # enum
@@ -10,8 +9,6 @@ from com.sun.star.beans import PropertyValue  # Struct
 from com.sun.star.i18n.TransliterationModulesNew import FULLWIDTH_HALFWIDTH  # enum
 from com.sun.star.lang import Locale  # Struct
 from com.sun.star.sheet import CellFlags  # 定数
-# from com.sun.star.sheet.CellDeleteMode import ROWS as delete_rows  # enum
-# from com.sun.star.table.CellHoriJustify import LEFT  # enum
 from com.sun.star.ui import ActionTriggerSeparatorType  # 定数
 from com.sun.star.ui.ContextMenuInterceptorAction import EXECUTE_MODIFIED  # enum
 class Ichiran():  # シート固有の値。
