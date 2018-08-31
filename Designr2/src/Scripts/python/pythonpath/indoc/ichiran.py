@@ -187,8 +187,8 @@ def wClickPt(enhancedmouseevent, xscriptcontext):
 	return False  # セル編集モードにしない。	
 def selectionChanged(eventobject, xscriptcontext):  # 矢印キーでセル移動した時も発火する。
 	selection = eventobject.Source.getSelection()
+	VARS.setSheet(selection.getSpreadsheet())			
 	if selection.supportsService("com.sun.star.sheet.SheetCellRange"):  # 選択範囲がセル範囲の時。
-		VARS.setSheet(selection.getSpreadsheet())			
 		drowBorders(selection)  # 枠線の作成。
 def drowBorders(selection):  # ターゲットを交点とする行列全体の外枠線を描く。
 	celladdress = selection[0, 0].getCellAddress()  # 選択範囲の左上端のセルアドレスを取得。
@@ -209,8 +209,6 @@ def changesOccurred(changesevent, xscriptcontext):  # Sourceにはドキュメ�
 			selection = change.ReplacedElement  # 値を変更したセルを取得。	
 			break
 	if selection:
-		sheet = selection.getSpreadsheet()
-		VARS.setSheet(sheet)
 		celladdress = selection.getCellAddress()
 		r, c = celladdress.Row, celladdress.Column
 		if r>=VARS.splittedrow:  # 分割行以降の時。
@@ -228,7 +226,6 @@ def changesOccurred(changesevent, xscriptcontext):  # Sourceにはドキュメ�
 def notifyContextMenuExecute(contextmenuexecuteevent, xscriptcontext):  # 右クリックメニュー。	
 	controller = contextmenuexecuteevent.Selection  # コントローラーは逐一取得しないとgetSelection()が反映されない。
 	sheet = controller.getActiveSheet()  # アクティブシートを取得。
-	VARS.setSheet(sheet)
 	contextmenu = contextmenuexecuteevent.ActionTriggerContainer  # コンテクストメニューコンテナの取得。
 	contextmenuname = contextmenu.getName().rsplit("/")[-1]  # コンテクストメニューの名前を取得。
 	addMenuentry = commons.menuentryCreator(contextmenu)  # 引数のActionTriggerContainerにインデックス0から項目を挿入する関数を取得。
@@ -272,7 +269,6 @@ def contextMenuEntries(entrynum, xscriptcontext):  # コンテクストメニュ
 		selection.clearContents(511)  # 範囲をすべてクリアする。
 	elif 14<entrynum<20:
 		sheet = controller.getActiveSheet()  # アクティブシートを取得。
-		VARS.setSheet(sheet)
 		rangeaddress = selection.getRangeAddress()  # 選択範囲のアドレスを取得。
 		if entrynum==15:  # 黒行上から使用中最上行へ
 			commons.toOtherEntry(sheet, rangeaddress, VARS.blackrow, VARS.blackrow+1)
