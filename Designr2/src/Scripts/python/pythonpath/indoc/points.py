@@ -19,7 +19,7 @@ class IDsheet():  # シート固有の値。
 		self.startcolumn = 5  # 開始列インデックス。	
 		self.dic = {\
 			"深さ": ("0: 皮膚損傷・発赤なし", "1: 持続する発赤", "2: 真皮までの損傷", "3: 皮下組織までの損傷", "4: 皮下組織を越える損傷", "5: 関節腔、体腔に至る損傷"),\
-			"浸出液": ("0: なし", "1: 少量:毎日のドレッシング交換を要しない", "3:  中等量:1日1回のドレッシング交換を要する", "6: 量:1日2回以上のドレッシング交換を要する"),\
+			"浸出液": ("0: なし", "1: 少量:毎日のドレッシング交換を要しない", "3: 中等量:1日1回のドレッシング交換を要する", "6: 多量:1日2回以上のドレッシング交換を要する"),\
 			"大きさ": ("0: 皮膚損傷なし", "3: 4未満", "6: 4以上16未満", "8: 16以上36未満", "9: 36以上64未満", "12: 64以上100未満", "15: 100以上"),\
 			"炎症・感染": ("0: 局所の炎症徴候なし", "1: 局所の炎症徴候あり(創周囲の発赤、腫脹、熱感、疼痛)", "3: 局所の明らかな感染徴候あり(炎症徴候、膿、悪臭など)", "9: 全身的影響あり(発熱など)"),\
 			"肉芽形成": ("0: 治癒あるいは創が浅いため肉芽形成の評価ができない", "1: 良性肉芽が創面の90%以上を占める", "3: 良性肉芽が創面の50%以上90%未満を占める", "4: 良性肉芽が、創面の10%以上50%未満を占める", "5: 良性肉芽が、創面の10%未満を占める", "6: 良性肉芽が全く形成されていない"),\
@@ -57,7 +57,8 @@ def activeSpreadsheetChanged(activationevent, xscriptcontext):  # シートが�
 		else:  # 今日がシートの日付より前のときは何もしない。
 			return	
 		fillToEndDayRow(xscriptcontext.getDocument(), enddayrow)
-	sheet[enddayrow+1:VARS.emptyrow, VARS.startcolumn:emptycolumn].clearContents(CellFlags.STRING+CellFlags.VALUE+CellFlags.DATETIME+CellFlags.FORMULA)  # 今日の行より下のセルの内容をクリア。
+		if enddayrow+1<VARS.emptyrow:  # 月末日以外の時。
+			sheet[enddayrow+1:VARS.emptyrow, VARS.startcolumn:emptycolumn].clearContents(CellFlags.STRING+CellFlags.VALUE+CellFlags.DATETIME+CellFlags.FORMULA)  # 今日の行より下のセルの内容をクリア。
 def fillToEndDayRow(doc, enddayrow):  # 各部位について最終行をenddayrowまでコピーして各行の最低点を算出。	
 	sheet = VARS.sheet
 	splittedrow = VARS.splittedrow
@@ -148,7 +149,7 @@ def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを�
 							startdatevalue = (ichiransheet[idcell.getCellAddress().Row, ichiranvars.startdaycolumn].getValue(),)  # 一覧シートにある開始日のシリアル値を行で取得。
 							datevalues = sheet[VARS.splittedrow:VARS.emptyrow, VARS.daycolumn].getDataArray()
 							if startdatevalue in datevalues:  # 一覧シートの開始日と一致する日付があるときはその行の上まで背景色をつける。
-								startrow = VARS.splittedrow+datevalues.index(startdatevalue)+1
+								startrow = VARS.splittedrow+datevalues.index(startdatevalue)
 								sheet[VARS.splittedrow:startrow, c:c+8].setPropertyValue("CellBackColor", commons.COLORS["silver"])  # 背景色をつける
 					else:  # 部位の先頭列でないときはエラーメッセージを出す。
 						msg = "部位の先頭列ではありません。"
@@ -229,12 +230,11 @@ def createCopySheet(xscriptcontext, year):
 			msg = "シート{}が存在しません。".format(sheetname)	
 			commons.showErrorMessageBox(controller, msg)	
 	return copySheet
-def callback_wClickPoints(mouseevent, xscriptcontext):
+def callback_wClickPoints(xscriptcontext, gridcelldata):
 	selection = xscriptcontext.getDocument().getCurrentSelection()  # シート上で選択しているオブジェクトを取得。
-	selection.setValue(int(selection.getString().split(":", 1)[0]))  # 点数のみにして数値としてセルに代入し直す。
+	selection.setValue(int(gridcelldata.split(":", 1)[0]))  # 点数のみにして数値としてセルに代入し直す。
 	celladdress = selection.getCellAddress()
-	r, c = celladdress.Row, celladdress.Column  # selectionの行インデックスと列インデックスを取得。	
-	reCalc(r, c)  # 部位別合計点と日の最低点を計算。
+	reCalc(celladdress.Row, celladdress.Column)  # 部位別合計点と日の最低点を計算。
 def selectionChanged(eventobject, xscriptcontext):  # 矢印キーでセル移動した時も発火する。
 	selection = eventobject.Source.getSelection()
 	if selection.supportsService("com.sun.star.sheet.SheetCellRange"):  # 選択範囲がセル範囲の時。

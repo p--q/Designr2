@@ -8,6 +8,9 @@ from com.sun.star.awt import MenuEvent, Rectangle  # Struct
 from com.sun.star.beans import NamedValue  # Struct
 from com.sun.star.util import XCloseListener
 def createDialog(xscriptcontext, dialogtitle, defaultrows, outputcolumn=None, *, enhancedmouseevent=None, fixedtxt=None, callback=None):  # dialogtitleはダイアログのデータ保存名に使うのでユニークでないといけない。defaultrowsはグリッドコントロールのデフォルトデータ。
+	# 一番最初のダイアログのオプション設定。
+	items = ("セル入力で閉じる", MenuItemStyle.CHECKABLE+MenuItemStyle.AUTOCHECK, {"checkItem": False}),\
+			("オプション表示", MenuItemStyle.CHECKABLE+MenuItemStyle.AUTOCHECK, {"checkItem": False})  # グリッドコントロールのコンテクストメニュー。XMenuListenerのmenuevent.MenuIdでコードを実行する。	
 	ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
 	smgr = ctx.getServiceManager()  # サービスマネージャーの取得。	
 	doc = xscriptcontext.getDocument()  # マクロを起動した時のドキュメントのモデルを取得。  
@@ -21,8 +24,6 @@ def createDialog(xscriptcontext, dialogtitle, defaultrows, outputcolumn=None, *,
 	controlcontainerprops = {"PositionX": 0, "PositionY": 0, "Width": XWidth(gridprops), "Height": YHeight(gridprops), "BackgroundColor": 0xF0F0F0}  # コントロールコンテナの基本プロパティ。幅は右端のコントロールから取得。高さはコントロール追加後に最後に設定し直す。		
 	controlcontainer, addControl = dialogcommons.controlcontainerMaCreator(ctx, smgr, maTopx, controlcontainerprops)  # コントロールコンテナの作成。		
 	menulistener = staticdialog.MenuListener()  # コンテクストメニューにつけるリスナー。
-	items = ("セル入力で閉じる", MenuItemStyle.CHECKABLE+MenuItemStyle.AUTOCHECK, {"checkItem": False}),\
-			("オプション表示", MenuItemStyle.CHECKABLE+MenuItemStyle.AUTOCHECK, {"checkItem": False})  # グリッドコントロールのコンテクストメニュー。XMenuListenerのmenuevent.MenuIdでコードを実行する。
 	gridpopupmenu = dialogcommons.menuCreator(ctx, smgr)("PopupMenu", items, {"addMenuListener": menulistener})  # 右クリックでまず呼び出すポップアップメニュー。 
 	args = gridpopupmenu, xscriptcontext, outputcolumn, fixedtxt, callback  # gridpopupmenuは先頭でないといけない。
 	mouselistener = MouseListener(args)
@@ -158,7 +159,7 @@ class MouseListener(unohelper.Base, XMouseListener):
 					else:
 						sheet[r, c].setString(fixedtxt)  # セルに代入。
 					if callback is not None:  # コールバック関数が与えられている時。
-						callback(mouseevent, xscriptcontext, rowdata[0])								
+						callback(xscriptcontext, rowdata[0])								
 				gridpopupmenu = self.gridpopupmenu		
 				for menuid in range(1, gridpopupmenu.getItemCount()+1):  # ポップアップメニューを走査する。
 					itemtext = gridpopupmenu.getItemText(menuid)  # 文字列にはショートカットキーがついてくる。

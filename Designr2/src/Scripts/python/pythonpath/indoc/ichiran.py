@@ -32,9 +32,6 @@ def activeSpreadsheetChanged(activationevent, xscriptcontext):  # シートが�
 	sheet = activationevent.ActiveSheet  # アクティブになったシートを取得。
 	datarows = ("全部位終了消去", "", "印刷", "月末印刷", "過去月"),
 	sheet[0, :len(datarows[0])].setDataArray(datarows)
-	sheets = xscriptcontext.getDocument().getSheets()
-	if "config" in sheets:  # configシートがある時。
-		sheets["config"].setPropertyValue("IsVisible", False)  # 非表示シートにする。印刷のときページ数に数えないため。
 def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを押した時。controllerにコンテナウィンドウはない。
 	if enhancedmouseevent.ClickCount==2 and enhancedmouseevent.Buttons==MouseButton.LEFT:  # 左ダブルクリックの時。まずselectionChanged()が発火している。
 		selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
@@ -135,7 +132,7 @@ def printPointsSheets(xscriptcontext):
 	componentwindow = controller.ComponentWindow
 	msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, INFOBOX, MessageBoxButtons.BUTTONS_OK, "myRs", msg)
 	msgbox.execute()
-def callback_wClickGrid(mouseevent, xscriptcontext, gridcelldata):  # gridcelldata: グリッドコントロールのダブルクリックしたセルのデータ。	
+def callback_wClickGrid(xscriptcontext, gridcelldata):  # gridcelldata: グリッドコントロールのダブルクリックしたセルのデータ。	
 	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 	
 	dirpath = os.path.dirname(unohelper.fileUrlToSystemPath(doc.getURL()))  # このドキュメントのあるディレクトリのフルパスを取得。	
 	systempath = next(glob.iglob(os.path.join(dirpath, "*", "{}.ods".format(gridcelldata)), recursive=True))  # ファイルパスを取得。	
@@ -178,6 +175,7 @@ def wClickPt(enhancedmouseevent, xscriptcontext):
 				idsheet[:emptyrow, pointsvars.daycolumn].setDataArray(datarows)
 				idsheet[splittedrow+1:emptyrow, :pointsvars.mincolumn].setPropertyValue("CellBackColor", colors["silver"])  # 背景色をつける
 				idsheet[splittedrow:emptyrow, pointsvars.daycolumn].setPropertyValue("NumberFormat", commons.formatkeyCreator(doc)("YYYY-M-DD"))
+				pointsvars.setSheet(idsheet)  # 日付代入後に変化する値を取得する。
 				points.colorizeDays(doc, functionaccess, startdatevalue)
 				doc.getCurrentController().setActiveSheet(idsheet)  # IDシートをアクティブにする。	
 			else:

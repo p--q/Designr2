@@ -10,6 +10,9 @@ from com.sun.star.beans import NamedValue  # Struct
 from com.sun.star.util import XCloseListener
 from com.sun.star.view.SelectionType import MULTI  # enum 
 def createDialog(enhancedmouseevent, xscriptcontext, dialogtitle, defaultrows=None, outputcolumn=None, *, callback=None):  # dialogtitleはダイアログのデータ保存名に使うのでユニークでないといけない。defaultrowsはグリッドコントロールのデフォルトデータ。
+	# 一番最初のダイアログのオプション設定。
+	items = ("セル入力で閉じる", MenuItemStyle.CHECKABLE+MenuItemStyle.AUTOCHECK, {"checkItem": True}),\
+			("オプション表示", MenuItemStyle.CHECKABLE+MenuItemStyle.AUTOCHECK, {"checkItem": False})  # グリッドコントロールのコンテクストメニュー。XMenuListenerのmenuevent.MenuIdでコードを実行する。
 	ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
 	smgr = ctx.getServiceManager()  # サービスマネージャーの取得。	
 	doc = xscriptcontext.getDocument()  # マクロを起動した時のドキュメントのモデルを取得。   
@@ -26,8 +29,6 @@ def createDialog(enhancedmouseevent, xscriptcontext, dialogtitle, defaultrows=No
 	controlcontainerprops = {"PositionX": 0, "PositionY": 0, "Width": XWidth(gridprops), "Height": YHeight(gridprops), "BackgroundColor": 0xF0F0F0}  # コントロールコンテナの基本プロパティ。幅は右端のコントロールから取得。高さはコントロール追加後に最後に設定し直す。		
 	controlcontainer, addControl = dialogcommons.controlcontainerMaCreator(ctx, smgr, maTopx, controlcontainerprops)  # コントロールコンテナの作成。		
 	menulistener = MenuListener()  # コンテクストメニューにつけるリスナー。
-	items = ("セル入力で閉じる", MenuItemStyle.CHECKABLE+MenuItemStyle.AUTOCHECK, {"checkItem": False}),\
-			("オプション表示", MenuItemStyle.CHECKABLE+MenuItemStyle.AUTOCHECK, {"checkItem": False})  # グリッドコントロールのコンテクストメニュー。XMenuListenerのmenuevent.MenuIdでコードを実行する。
 	gridpopupmenu = dialogcommons.menuCreator(ctx, smgr)("PopupMenu", items, {"addMenuListener": menulistener})  # 右クリックでまず呼び出すポップアップメニュー。 
 	args = gridpopupmenu, xscriptcontext, outputcolumn, callback  # gridpopupmenuは先頭でないといけない。
 	mouselistener = MouseListener(args)
@@ -107,6 +108,7 @@ def createDialog(enhancedmouseevent, xscriptcontext, dialogtitle, defaultrows=No
 			checkboxcontrol2.setState(checkbox2sate)  # 状態を復元。	
 			if checkbox2sate:  # サイズ復元がチェックされている時。
 				dialogwindow.setPosSize(0, 0, dialogstate["Width"], dialogstate["Height"], PosSize.SIZE)  # ウィンドウサイズを復元。WindowListenerが発火する。
+
 	args = doc, actionlistener, dialogwindow, windowlistener, mouselistener, menulistener, controlcontainerwindowlistener, optioncontrolcontainerwindowlistener
 	dialogframe.addCloseListener(CloseListener(args))  # CloseListener。ノンモダルダイアログのリスナー削除用。	
 	return gridcontrol1, datarows  # グリッド行の選択のためにグリッドコントロールとグリッドのデータ行を返す。
@@ -253,7 +255,7 @@ class MouseListener(unohelper.Base, XMouseListener):
 					else:
 						sheet[r, c].setString(rowdata[0])  # セルに代入。
 					if callback is not None:  # コールバック関数が与えられている時。
-						callback(mouseevent, xscriptcontext)						
+						callback(xscriptcontext, rowdata[0])						
 					if not flg:	
 						controller.select(sheet[r, c+1])  # 右のセルを選択。	
 				for menuid in range(1, self.gridpopupmenu.getItemCount()+1):  # ポップアップメニューを走査する。

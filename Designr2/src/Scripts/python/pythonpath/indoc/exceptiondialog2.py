@@ -1,5 +1,6 @@
 #!/opt/libreoffice5.4/program/python
 # -*- coding: utf-8 -*-
+# サブサブモジュール以遠のエラーは検出できない。
 # ノンモダルダイアログ。UnoControlDialogとかメッセージボックスだとマウスをクリックした状態のままになってしまうことがある。
 # import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
 import os, platform, subprocess, traceback, unohelper
