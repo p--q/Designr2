@@ -132,7 +132,7 @@ def printPointsSheets(xscriptcontext):
 	componentwindow = controller.ComponentWindow
 	msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, INFOBOX, MessageBoxButtons.BUTTONS_OK, "myRs", msg)
 	msgbox.execute()
-def callback_wClickGrid(xscriptcontext, gridcelldata):  # gridcelldata: グリッドコントロールのダブルクリックしたセルのデータ。	
+def callback_wClickGrid(gridcelldata, xscriptcontext):  # gridcelldata: グリッドコントロールのダブルクリックしたセルのデータ。	
 	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 	
 	dirpath = os.path.dirname(unohelper.fileUrlToSystemPath(doc.getURL()))  # このドキュメントのあるディレクトリのフルパスを取得。	
 	systempath = next(glob.iglob(os.path.join(dirpath, "*", "{}.ods".format(gridcelldata)), recursive=True))  # ファイルパスを取得。	

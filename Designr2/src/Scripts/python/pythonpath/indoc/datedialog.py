@@ -171,9 +171,10 @@ class MouseListener(unohelper.Base, XMouseListener):
 							if formatkey == -1:  # デフォルトのフォーマットにformatstringがないとき。
 								formatkey = numberformats.addNew(formatstring, localestruct)  # フォーマット一覧に追加する。保存はドキュメントごと。
 							selection.setPropertyValue("NumberFormat", formatkey)  # セルの書式を設定。 
-						selection.setFormula(datetxt.split("(")[0])  # 2018-8-7の書式で式としてセルに代入。
+						datetxt = datetxt.split("(")[0]  # 2018-8-7という書式にする。
+						selection.setFormula(datetxt)  # 2018-8-7の書式で式としてセルに代入。
 						if callback is not None:  # コールバック関数が与えられている時。
-							callback(mouseevent, xscriptcontext)
+							callback(datetxt, xscriptcontext)
 				for menuid in range(1, self.gridpopupmenu.getItemCount()+1):  # ポップアップメニューを走査する。
 					itemtext = self.gridpopupmenu.getItemText(menuid)  # 文字列にはショートカットキーがついてくる。
 					if itemtext.startswith("セル入力で閉じる"):

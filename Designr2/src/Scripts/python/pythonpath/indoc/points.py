@@ -230,7 +230,7 @@ def createCopySheet(xscriptcontext, year):
 			msg = "シート{}が存在しません。".format(sheetname)	
 			commons.showErrorMessageBox(controller, msg)	
 	return copySheet
-def callback_wClickPoints(xscriptcontext, gridcelldata):
+def callback_wClickPoints(gridcelldata, xscriptcontext):
 	selection = xscriptcontext.getDocument().getCurrentSelection()  # シート上で選択しているオブジェクトを取得。
 	selection.setValue(int(gridcelldata.split(":", 1)[0]))  # 点数のみにして数値としてセルに代入し直す。
 	celladdress = selection.getCellAddress()

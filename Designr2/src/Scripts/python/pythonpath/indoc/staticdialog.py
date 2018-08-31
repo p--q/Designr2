@@ -255,7 +255,7 @@ class MouseListener(unohelper.Base, XMouseListener):
 					else:
 						sheet[r, c].setString(rowdata[0])  # セルに代入。
 					if callback is not None:  # コールバック関数が与えられている時。
-						callback(xscriptcontext, rowdata[0])						
+						callback(rowdata[0], xscriptcontext)						
 					if not flg:	
 						controller.select(sheet[r, c+1])  # 右のセルを選択。	
 				for menuid in range(1, self.gridpopupmenu.getItemCount()+1):  # ポップアップメニューを走査する。

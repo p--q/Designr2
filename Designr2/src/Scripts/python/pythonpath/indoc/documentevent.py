@@ -1,7 +1,6 @@
 #!/opt/libreoffice5.4/program/python
 # -*- coding: utf-8 -*-
 import platform
-from indoc import commons, ichiran
 # ドキュメントイベントについて。
 def documentOnLoad(xscriptcontext):  # ドキュメントを開いた時。リスナー追加前。
 	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 
