@@ -237,8 +237,8 @@ def callback_wClickPoints(gridcelldata, xscriptcontext):
 	reCalc(celladdress.Row, celladdress.Column)  # 部位別合計点と日の最低点を計算。
 def selectionChanged(eventobject, xscriptcontext):  # 矢印キーでセル移動した時も発火する。
 	selection = eventobject.Source.getSelection()
-	VARS.setSheet(selection.getSpreadsheet())			
 	if selection.supportsService("com.sun.star.sheet.SheetCellRange"):  # 選択範囲がセル範囲の時。
+		VARS.setSheet(selection.getSpreadsheet())		
 		drowBorders(selection)  # 枠線の作成。			
 def drowBorders(selection):  # ターゲットを交点とする行列全体の外枠線を描く。
 	rangeaddress = selection.getRangeAddress()  # 選択範囲のセル範囲アドレスを取得。	
