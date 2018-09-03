@@ -25,7 +25,7 @@ class IDsheet():  # シート固有の値。
 			("肉芽形成", ("0: 治癒あるいは創が浅いため肉芽形成の評価ができない", "1: 良性肉芽が創面の90%以上を占める", "3: 良性肉芽が創面の50%以上90%未満を占める", "4: 良性肉芽が、創面の10%以上50%未満を占める", "5: 良性肉芽が、創面の10%未満を占める", "6: 良性肉芽が全く形成されていない")),\
 			("壊死組織", ("0: 壊死組織なし", "3: 柔らかい壊死組織あり", "6: 硬く厚い密着した壊死組織あり")),\
 			("ポケット", ("0: ポケットなし", "6: 4未満", "9: 4以上16未満", "12: 16以上36未満", "24: 36以上"))
-		self.dic = OrderedDict([(k, v) for k, v in items])  # 通常のdictは順番が一定でない。
+		self.dic = OrderedDict([(k, v) for k, v in items])  # 通常のdictは順番が一定でないのでOrderedDictを使う。
 	def setSheet(self, sheet):  # 逐次変化する値。
 		self.sheet = sheet
 		cellranges = sheet[:, self.daycolumn].queryContentCells(CellFlags.STRING+CellFlags.VALUE+CellFlags.DATETIME)  # ID列の文字列、数値、日付が入っているセルに限定して抽出。

@@ -148,14 +148,21 @@ def wClickPt(enhancedmouseevent, xscriptcontext):
 		if idtxt:  # 空セルでない時。
 			ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
 			smgr = ctx.getServiceManager()  # サービスマネージャーの取得。
+			transliteration = smgr.createInstanceWithContext("com.sun.star.i18n.Transliteration", ctx)  # Transliteration。		
+			transliteration.loadModuleNew((FULLWIDTH_HALFWIDTH,), Locale(Language = "ja", Country = "JP"))			
+			txt = selection.getString()  # セルの文字列を取得。			
+			txt = transliteration.transliterate(txt, 0, len(txt), [])[0]  # 半角に変換。
+			if txt.isdigit():  # 数値の時のみ。空文字の時0で埋まってしまう。
+				selection.setString("{:0>8}".format(txt))  # 数値を8桁にして文字列として代入し直す。
 			systemclipboard = smgr.createInstanceWithContext("com.sun.star.datatransfer.clipboard.SystemClipboard", ctx)  # SystemClipboard。クリップボードへのコピーに利用。
 			systemclipboard.setContents(commons.TextTransferable(idtxt), None)  # クリップボードにIDをコピーする。
 		else:
 			return True  # セル編集モードにする。
 	elif c==VARS.kanjicolumn:  # 漢字列の時。IDシートをアクティブにする、なければ作成する。シート名はIDと一致。	
 		doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 	
-		sheets = doc.getSheets()  # シートコレクションを取得。			
-		if idtxt in sheets:  # 経過列があり、かつ、IDシートが存在する時。
+		sheets = doc.getSheets()  # シートコレクションを取得。	
+		selection.setString(selection.getString().replace("　", " "))  # 全角スペースを半角スペースに置換。	
+		if idtxt in sheets:
 			doc.getCurrentController().setActiveSheet(sheets[idtxt])  # ID名のシートをアクティブにする。
 		else:  # ID名シートがない時。
 			if all((idtxt, kanjitxt, datevalue)):  # ID、漢字名、開始日、すべてが揃っている時。	
@@ -208,21 +215,26 @@ def changesOccurred(changesevent, xscriptcontext):  # Sourceにはドキュメ�
 		if change.Accessor=="cell-change":  # セルの値が変化した時。
 			selection = change.ReplacedElement  # 値を変更したセルを取得。	
 			break
-	if selection:
-		celladdress = selection.getCellAddress()
-		r, c = celladdress.Row, celladdress.Column
-		if r>=VARS.splittedrow:  # 分割行以降の時。
-			ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
-			smgr = ctx.getServiceManager()  # サービスマネージャーの取得。					
-			transliteration = smgr.createInstanceWithContext("com.sun.star.i18n.Transliteration", ctx)  # Transliteration。		
-			transliteration.loadModuleNew((FULLWIDTH_HALFWIDTH,), Locale(Language = "ja", Country = "JP"))	
-			txt = selection.getString()  # セルの文字列を取得。			
-			if c==VARS.idcolumn:  # ID列の時。
-				txt = transliteration.transliterate(txt, 0, len(txt), [])[0]  # 半角に変換。
-				if txt.isdigit():  # 数値の時のみ。空文字の時0で埋まってしまう。
-					selection.setString("{:0>8}".format(txt))  # 数値を8桁にして文字列として代入し直す。
-			elif c==VARS.kanjicolumn:
-				selection.setString(txt.replace("　", " "))  # 全角スペースを半角スペースに置換。
+	if selection:  # セルとは限らずセル範囲のときもある。シートからペーストしたときなど。テキストをペーストした時は発火しない。
+		sheet = VARS.sheet
+		splittedrow = VARS.splittedrow
+		idcolumn = VARS.idcolumn
+		kanjicolumn = VARS.kanjicolumn
+		ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
+		smgr = ctx.getServiceManager()  # サービスマネージャーの取得。		
+		rangeaddress = selection.getRangeAddress()
+		transliteration = smgr.createInstanceWithContext("com.sun.star.i18n.Transliteration", ctx)  # Transliteration。		
+		transliteration.loadModuleNew((FULLWIDTH_HALFWIDTH,), Locale(Language = "ja", Country = "JP"))			
+		for r in range(rangeaddress.StartRow, rangeaddress.EndRow+1):
+			for c in range(rangeaddress.StartColumn, rangeaddress.EndColumn+1):
+				if r>=splittedrow:  # 分割行以降の時。
+					txt = sheet[r, c].getString()  # セルの文字列を取得。			
+					if c==idcolumn:  # ID列の時。
+						txt = transliteration.transliterate(txt, 0, len(txt), [])[0]  # 半角に変換。
+						if txt.isdigit():  # 数値の時のみ。空文字の時0で埋まってしまう。
+							sheet[r, c].setString("{:0>8}".format(txt))  # 数値を8桁にして文字列として代入し直す。
+					elif c==kanjicolumn:
+						sheet[r, c].setString(txt.replace("　", " "))  # 全角スペースを半角スペースに置換。
 def notifyContextMenuExecute(contextmenuexecuteevent, xscriptcontext):  # 右クリックメニュー。	
 	controller = contextmenuexecuteevent.Selection  # コントローラーは逐一取得しないとgetSelection()が反映されない。
 	sheet = controller.getActiveSheet()  # アクティブシートを取得。
