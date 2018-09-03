@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 # IDシートについて。import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
 import unohelper, os
+from collections import OrderedDict
 from indoc import commons, staticdialog, ichiran
 from com.sun.star.awt import MouseButton, MessageBoxButtons, MessageBoxResults # 定数
 from com.sun.star.awt.MessageBoxType import QUERYBOX, WARNINGBOX  # enum
@@ -17,14 +18,14 @@ class IDsheet():  # シート固有の値。
 		self.mincolumn = 3  # 1日の最低点列のインデックス。
 		self.daycolumn = 4  # 日付列インデックス。
 		self.startcolumn = 5  # 開始列インデックス。	
-		self.dic = {\
-			"深さ": ("0: 皮膚損傷・発赤なし", "1: 持続する発赤", "2: 真皮までの損傷", "3: 皮下組織までの損傷", "4: 皮下組織を越える損傷", "5: 関節腔、体腔に至る損傷"),\
-			"浸出液": ("0: なし", "1: 少量:毎日のドレッシング交換を要しない", "3: 中等量:1日1回のドレッシング交換を要する", "6: 多量:1日2回以上のドレッシング交換を要する"),\
-			"大きさ": ("0: 皮膚損傷なし", "3: 4未満", "6: 4以上16未満", "8: 16以上36未満", "9: 36以上64未満", "12: 64以上100未満", "15: 100以上"),\
-			"炎症・感染": ("0: 局所の炎症徴候なし", "1: 局所の炎症徴候あり(創周囲の発赤、腫脹、熱感、疼痛)", "3: 局所の明らかな感染徴候あり(炎症徴候、膿、悪臭など)", "9: 全身的影響あり(発熱など)"),\
-			"肉芽形成": ("0: 治癒あるいは創が浅いため肉芽形成の評価ができない", "1: 良性肉芽が創面の90%以上を占める", "3: 良性肉芽が創面の50%以上90%未満を占める", "4: 良性肉芽が、創面の10%以上50%未満を占める", "5: 良性肉芽が、創面の10%未満を占める", "6: 良性肉芽が全く形成されていない"),\
-			"壊死組織": ("0: 壊死組織なし", "3: 柔らかい壊死組織あり", "6: 硬く厚い密着した壊死組織あり"),\
-			"ポケット": ("0: ポケットなし", "6: 4未満", "9: 4以上16未満", "12: 16以上36未満", "24: 36以上")}
+		items = ("深さ", ("0: 皮膚損傷・発赤なし", "1: 持続する発赤", "2: 真皮までの損傷", "3: 皮下組織までの損傷", "4: 皮下組織を越える損傷", "5: 関節腔、体腔に至る損傷")),\
+			("浸出液", ("0: なし", "1: 少量:毎日のドレッシング交換を要しない", "3: 中等量:1日1回のドレッシング交換を要する", "6: 多量:1日2回以上のドレッシング交換を要する")),\
+			("大きさ", ("0: 皮膚損傷なし", "3: 4未満", "6: 4以上16未満", "8: 16以上36未満", "9: 36以上64未満", "12: 64以上100未満", "15: 100以上")),\
+			("炎症・感染", ("0: 局所の炎症徴候なし", "1: 局所の炎症徴候あり(創周囲の発赤、腫脹、熱感、疼痛)", "3: 局所の明らかな感染徴候あり(炎症徴候、膿、悪臭など)", "9: 全身的影響あり(発熱など)")),\
+			("肉芽形成", ("0: 治癒あるいは創が浅いため肉芽形成の評価ができない", "1: 良性肉芽が創面の90%以上を占める", "3: 良性肉芽が創面の50%以上90%未満を占める", "4: 良性肉芽が、創面の10%以上50%未満を占める", "5: 良性肉芽が、創面の10%未満を占める", "6: 良性肉芽が全く形成されていない")),\
+			("壊死組織", ("0: 壊死組織なし", "3: 柔らかい壊死組織あり", "6: 硬く厚い密着した壊死組織あり")),\
+			("ポケット", ("0: ポケットなし", "6: 4未満", "9: 4以上16未満", "12: 16以上36未満", "24: 36以上"))
+		self.dic = OrderedDict([(k, v) for k, v in items])  # 通常のdictは順番が一定でない。
 	def setSheet(self, sheet):  # 逐次変化する値。
 		self.sheet = sheet
 		cellranges = sheet[:, self.daycolumn].queryContentCells(CellFlags.STRING+CellFlags.VALUE+CellFlags.DATETIME)  # ID列の文字列、数値、日付が入っているセルに限定して抽出。
@@ -150,7 +151,8 @@ def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを�
 							datevalues = sheet[VARS.splittedrow:VARS.emptyrow, VARS.daycolumn].getDataArray()
 							if startdatevalue in datevalues:  # 一覧シートの開始日と一致する日付があるときはその行の上まで背景色をつける。
 								startrow = VARS.splittedrow+datevalues.index(startdatevalue)
-								sheet[VARS.splittedrow:startrow, c:c+8].setPropertyValue("CellBackColor", commons.COLORS["silver"])  # 背景色をつける
+								if VARS.splittedrow<startrow:  # 1日は除く。
+									sheet[VARS.splittedrow:startrow, c:c+8].setPropertyValue("CellBackColor", commons.COLORS["silver"])  # 背景色をつける
 					else:  # 部位の先頭列でないときはエラーメッセージを出す。
 						msg = "部位の先頭列ではありません。"
 						commons.showErrorMessageBox(controller, msg)
