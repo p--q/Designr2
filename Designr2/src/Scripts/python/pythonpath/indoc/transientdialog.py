@@ -27,7 +27,8 @@ def createDialog(xscriptcontext, dialogtitle, defaultrows, outputcolumn=None, *,
 	gridpopupmenu = dialogcommons.menuCreator(ctx, smgr)("PopupMenu", items, {"addMenuListener": menulistener})  # 右クリックでまず呼び出すポップアップメニュー。 
 	args = gridpopupmenu, xscriptcontext, outputcolumn, fixedtxt, callback  # gridpopupmenuは先頭でないといけない。
 	mouselistener = MouseListener(args)
-	gridcontrol1 = addControl("Grid", gridprops, {"addMouseListener": mouselistener})  # グリッドコントロールの取得。
+	mousemotionlistener = dialogcommons.MouseMotionListener()
+	gridcontrol1 = addControl("Grid", gridprops, {"addMouseListener": mouselistener, "addMouseMotionListener": mousemotionlistener})  # グリッドコントロールの取得。
 	gridmodel = gridcontrol1.getModel()  # グリッドコントロールモデルの取得。
 	gridcolumn = gridmodel.getPropertyValue("ColumnModel")  # DefaultGridColumnModel
 	gridcolumn.addColumn(gridcolumn.createColumn())  # 列を追加。
@@ -95,14 +96,14 @@ def createDialog(xscriptcontext, dialogtitle, defaultrows, outputcolumn=None, *,
 			checkboxcontrol2.setState(checkbox2sate)  # 状態を復元。	
 			if checkbox2sate:  # サイズ復元がチェックされている時。
 				dialogwindow.setPosSize(0, 0, dialogstate["Width"], dialogstate["Height"], PosSize.SIZE)  # ウィンドウサイズを復元。WindowListenerが発火する。
-	args = doc, dialogwindow, windowlistener, mouselistener, menulistener, controlcontainerwindowlistener
+	args = doc, dialogwindow, windowlistener, mouselistener, menulistener, controlcontainerwindowlistener, mousemotionlistener
 	dialogframe.addCloseListener(CloseListener(args))  # CloseListener。ノンモダルダイアログのリスナー削除用。	
 class CloseListener(unohelper.Base, XCloseListener):  # ノンモダルダイアログのリスナー削除用。
 	def __init__(self, args):
 		self.args = args
 	def queryClosing(self, eventobject, getsownership):  # ノンモダルダイアログを閉じる時に発火。
 		dialogframe = eventobject.Source
-		doc, dialogwindow, windowlistener, mouselistener, menulistener, controlcontainerwindowlistener = self.args
+		doc, dialogwindow, windowlistener, mouselistener, menulistener, controlcontainerwindowlistener, mousemotionlistener = self.args
 		controlcontainer, optioncontrolcontainer = windowlistener.args
 		dialogwindowsize = dialogwindow.getSize()	
 		dialogstate = {"CheckBox1sate": optioncontrolcontainer.getControl("CheckBox1").getState(),\
@@ -119,7 +120,9 @@ class CloseListener(unohelper.Base, XCloseListener):  # ノンモダルダイア
 		dialogtitle = dialogframe.getTitle()  # コンテナウィンドウタイトルを取得。データ保存のIDに使う。
 		dialogcommons.saveData(doc, "dialogstate_{}".format(dialogtitle), dialogstate)  # ダイアログの状態を保存。
 		gridpopupmenu.removeMenuListener(menulistener)
-		controlcontainer.getControl("Grid1").removeMouseListener(mouselistener)
+		gridcontrol1 = controlcontainer.getControl("Grid1")
+		gridcontrol1.removeMouseListener(mouselistener)
+		gridcontrol1.removeMouseMotionListener(mousemotionlistener)
 		controlcontainer.removeWindowListener(controlcontainerwindowlistener)
 		dialogwindow.removeWindowListener(windowlistener)
 		eventobject.Source.removeCloseListener(self)

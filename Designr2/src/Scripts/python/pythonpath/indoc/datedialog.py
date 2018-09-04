@@ -31,8 +31,9 @@ def createDialog(enhancedmouseevent, xscriptcontext, dialogtitle, formatstring=N
 	gridpopupmenu = dialogcommons.menuCreator(ctx, smgr)("PopupMenu", items)  # 右クリックでまず呼び出すポップアップメニュー。 
 	args = xscriptcontext, formatstring, outputcolumn, callback
 	mouselistener = MouseListener(gridpopupmenu, args)
+	mousemotionlistener = dialogcommons.MouseMotionListener()
 	gridcontrolwidth = gridprops["Width"]  # gridpropsは消費されるので、グリッドコントロールの幅を取得しておく。
-	gridcontrol1 = addControl("Grid", gridprops, {"addMouseListener": mouselistener})  # グリッドコントロールの取得。
+	gridcontrol1 = addControl("Grid", gridprops, {"addMouseListener": mouselistener, "addMouseMotionListener": mousemotionlistener})  # グリッドコントロールの取得。
 	gridcolumn = gridcontrol1.getModel().getPropertyValue("ColumnModel")  # DefaultGridColumnModel
 	column0 = gridcolumn.createColumn() # 列の作成。
 	column0.ColumnWidth = 25 # 列幅。
@@ -89,7 +90,7 @@ def createDialog(enhancedmouseevent, xscriptcontext, dialogtitle, formatstring=N
 				closecheck = dialogstate.get("CloseCheck")  # セル入力で閉じる、のチェックがある時。
 				if closecheck is not None:
 					gridpopupmenu.checkItem(menuid, closecheck)	
-	args = doc, mouselistener, controlcontainer
+	args = doc, mouselistener, controlcontainer, mousemotionlistener
 	dialogframe.addCloseListener(CloseListener(args))  # CloseListener。ノンモダルダイアログのリスナー削除用。		
 def addDays(gridcontrol, centerday, col0, daycount=7):
 	todayindex = 7//2  # 今日の日付の位置を決定。切り下げ。
@@ -105,7 +106,7 @@ class CloseListener(unohelper.Base, XCloseListener):  # ノンモダルダイア
 		self.args = args
 	def queryClosing(self, eventobject, getsownership):  # ノンモダルダイアログを閉じる時に発火。
 		dialogframe = eventobject.Source
-		doc, mouselistener, controlcontainer = self.args
+		doc, mouselistener, controlcontainer, mousemotionlistener = self.args
 		gridpopupmenu = mouselistener.gridpopupmenu
 		for menuid in range(1, gridpopupmenu.getItemCount()+1):  # ポップアップメニューを走査する。
 			itemtext = gridpopupmenu.getItemText(menuid)
@@ -113,7 +114,9 @@ class CloseListener(unohelper.Base, XCloseListener):  # ノンモダルダイア
 				dialogstate = {"CloseCheck": gridpopupmenu.isItemChecked(menuid)}
 		dialogtitle = dialogframe.getTitle()  # コンテナウィンドウタイトルを取得。データ保存のIDに使う。
 		dialogcommons.saveData(doc, "dialogstate_{}".format(dialogtitle), dialogstate)  # ダイアログの状態を保存。
-		controlcontainer.getControl("Grid1").removeMouseListener(mouselistener)
+		gridcontrol1 = controlcontainer.getControl("Grid1")
+		gridcontrol1.removeMouseListener(mouselistener)
+		gridcontrol1.removeMouseMotionListener(mousemotionlistener)
 		eventobject.Source.removeCloseListener(self)
 	def notifyClosing(self, eventobject):
 		pass
