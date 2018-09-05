@@ -216,7 +216,13 @@ class MouseListener(unohelper.Base, XMouseListener):
 					itemtext = self.gridpopupmenu.getItemText(menuid)  # 文字列にはショートカットキーがついてくる。
 					if itemtext.startswith("オプション表示"):
 						if not self.gridpopupmenu.isItemChecked(menuid):  # 選択項目にチェックが入っていない時。
-							self._toCell(gridcontrol)
+							
+							# さらにカーソルがグリッドコントロール上にあることを確認する。
+							rowidx = gridcontrol.getRowAtPoint(mouseevent.X, mouseevent.Y)  # マウスポイントがある行インデックスを取得。行がそこにない時は-1が返る。
+							if rowidx>-1:  # 行インデックスを取得出来た時。
+								self._toCell(gridcontrol)
+								
+								
 							break		
 				else:
 				
