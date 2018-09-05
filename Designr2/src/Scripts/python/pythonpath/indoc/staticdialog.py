@@ -108,7 +108,6 @@ def createDialog(enhancedmouseevent, xscriptcontext, dialogtitle, defaultrows=No
 			checkboxcontrol2.setState(checkbox2sate)  # 状態を復元。	
 			if checkbox2sate:  # サイズ復元がチェックされている時。
 				dialogwindow.setPosSize(0, 0, dialogstate["Width"], dialogstate["Height"], PosSize.SIZE)  # ウィンドウサイズを復元。WindowListenerが発火する。
-
 	args = doc, actionlistener, dialogwindow, windowlistener, mouselistener, menulistener, controlcontainerwindowlistener, optioncontrolcontainerwindowlistener
 	dialogframe.addCloseListener(CloseListener(args))  # CloseListener。ノンモダルダイアログのリスナー削除用。	
 	return gridcontrol1, datarows  # グリッド行の選択のためにグリッドコントロールとグリッドのデータ行を返す。
@@ -136,7 +135,7 @@ class CloseListener(unohelper.Base, XCloseListener):  # ノンモダルダイア
 		dialogcommons.saveData(doc, "GridDatarows_{}".format(dialogtitle), actionlistener.datarows)  # ダイアログのグリッドコントロールの行を保存。
 		gridpopupmenu.removeMenuListener(menulistener)
 		controlcontainer.getControl("Grid1").removeMouseListener(mouselistener)
-		[controlcontainer.getControl(i).removeActionListener(actionlistener) for i in ("Button1", "Button2", "Button3", "Button4")]
+		[optioncontrolcontainer.getControl(i).removeActionListener(actionlistener) for i in ("Button1", "Button2", "Button3", "Button4")]
 		controlcontainer.removeWindowListener(controlcontainerwindowlistener)
 		optioncontrolcontainer.removeWindowListener(optioncontrolcontainerwindowlistener)
 		dialogwindow.removeWindowListener(windowlistener)
@@ -205,11 +204,10 @@ class MouseListener(unohelper.Base, XMouseListener):
 		self.optioncontrolcontainer = None
 		self.dialogframe = None
 	def mousePressed(self, mouseevent):  # グリッドコントロールをクリックした時。コントロールモデルにはNameプロパティはない。
-		xscriptcontext, outputcolumn, callback = self.args
 		gridcontrol = mouseevent.Source  # グリッドコントロールを取得。
 		optioncontrolcontainer = self.optioncontrolcontainer
 		if mouseevent.Buttons==MouseButton.LEFT:
-			if mouseevent.ClickCount==1:  # シングルクリックの時。
+			if mouseevent.ClickCount==1:  # シングルクリックの時。オプションコントロールコンテナを非表示にしたときや行を追加した時もシングルクリックやXGridSelectionListenerが発火するのでシングルクリックでセル入力は無理。
 				selectedrowindexes = dialogcommons.getSelectedRowIndexes(gridcontrol)
 				if not selectedrowindexes:  # 選択行がない時(選択行を削除した時)。
 					return  # 何もしない		
@@ -233,8 +231,9 @@ class MouseListener(unohelper.Base, XMouseListener):
 				rowdata = griddatamodel.getRowData(selectedrowindexes[0])  # 選択行の最初の行のデータを取得。
 				optioncontrolcontainer.getControl("Edit1").setText(rowdata[0])  # テキストボックスに選択行の初行の文字列を代入。
 				if griddatamodel.RowCount==1:  # 1行しかない時はまた発火できるように選択を外す。
-					gridcontrol.deselectRow(0)  # 選択行の選択を外す。選択していない行を指定すると永遠ループになる。
+					gridcontrol.deselectRow(0)  # 選択行の選択を外す。選択していない行を指定すると永遠ループになる。	
 			elif mouseevent.ClickCount==2:  # ダブルクリックの時。
+				xscriptcontext, outputcolumn, callback = self.args
 				doc = xscriptcontext.getDocument()
 				selection = doc.getCurrentSelection()  # シート上で選択しているオブジェクトを取得。
 				if selection.supportsService("com.sun.star.sheet.SheetCell"):  # 選択オブジェクトがセルの時。
@@ -284,7 +283,7 @@ class MenuListener(unohelper.Base, XMenuListener):
 		menuid = menuevent.MenuId  # メニューIDを取得。1から始まる。
 		gridpopupmenu = menuevent.Source
 		itemtext = gridpopupmenu.getItemText(menuid)  # 文字列にはショートカットキーがついてくる。
-		if itemtext.startswith("オプション表示"):		
+		if itemtext.startswith("オプション表示"):	
 			dialogwindow, windowlistener = self.args
 			dummy, optioncontrolcontainer = windowlistener.args
 			dialogwindowsize = dialogwindow.getSize()
