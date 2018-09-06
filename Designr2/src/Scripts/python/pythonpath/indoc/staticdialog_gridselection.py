@@ -297,13 +297,6 @@ class MouseListener(unohelper.Base, XMouseListener):
 						
 		elif mouseevent.Buttons==MouseButton.RIGHT:  # 右ボタンクリックの時。mouseevent.PopupTriggerではサブジェクトによってはTrueにならないので使わない。
 			pos = Rectangle(mouseevent.X, mouseevent.Y, 0, 0)  # ポップアップメニューを表示させる起点。
-			
-			グリッドコントロールからMouseListenerを削除しないと、ポップアップメニューを選択するクリックで発火する。そのときダイアログを閉じてあるとクラッシュする。
-			いつ付け直す？
-			selectionChanged()内か。
-			
-			
-			
 			self.gridpopupmenu.execute(gridcontrol.getPeer(), pos, PopupMenuDirection.EXECUTE_DEFAULT)  # ポップアップメニューを表示させる。引数は親ピア、位置、方向		
 # 	def _toCell(self, gridcontrol):
 # 		xscriptcontext, outputcolumn, callback = self.args
@@ -379,11 +372,10 @@ def toCell(gridpopupmenu, xscriptcontext, outputcolumn, callback, dialogframe, o
 		if itemtext.startswith("セル入力で閉じる"):
 			if gridpopupmenu.isItemChecked(menuid):  # 選択項目にチェックが入っている時。
 				
-				# リスナーをはずさないとクラッシュする。
+				gridcontrol.removeMouseListener(mouselistener)  # グリッドコントロールからMouseListenerを削除しないと、ポップアップメニューを選択するクリックで発火する。そのときダイアログを閉じてあるとクラッシュする。
+				gridcontrol.removeSelectionListener(gridselectionlistener)
 				
-				
-				
-				dialogframe.close(True)
+				dialogframe.close(True)  # リスナーをはずさないとクラッシュする。具体的にはマウスリスナー。
 				break		
 class GridSelectionListener(unohelper.Base, XGridSelectionListener):
 	def __init__(self, args): 	
@@ -393,10 +385,6 @@ class GridSelectionListener(unohelper.Base, XGridSelectionListener):
 		self.optioncontrolcontainer = None
 		self.dialogframe = None	
 	def selectionChanged(self, gridselectionevent):  # 行を追加した時も発火する。
-		
-		
-# 		import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
-		
 		gridcontrol = gridselectionevent.Source
 		for menuid in range(1, self.gridpopupmenu.getItemCount()+1):  # ポップアップメニューを走査する。
 			itemtext = self.gridpopupmenu.getItemText(menuid)  # 文字列にはショートカットキーがついてくる。
@@ -430,15 +418,6 @@ class GridSelectionListener(unohelper.Base, XGridSelectionListener):
 			optioncontrolcontainer.getControl("Edit1").setText(rowdata[0])  # テキストボックスに選択行の初行の文字列を代入。
 			if griddatamodel.RowCount==1:  # 1行しかない時はまた発火できるように選択を外す。
 				gridcontrol.deselectRow(0)  # 選択行の選択を外す。選択していない行を指定すると永遠ループになる。	
-		
-		
-		
-# 		selectedrows = gridselectionevent.SelectedRowIndexes  # 行がないグリッドコントロールに行が追加されたときは負の値が入ってくる。
-# 		if selectedrows:  # 選択行がある時。
-# 			rowdata = gridcontrol.getModel().getPropertyValue("GridDataModel").getRowData(gridselectionevent.SelectedRowIndexes[0])  # 選択行の最初の行のデータを取得。
-# 			dialog = gridcontrol.getContext()
-# 			dialog.getControl("Edit1").setText(rowdata[0])
-# 			dialog.getControl("Edit2").setText(rowdata[1])
 	def disposing(self, eventobject):
 		pass
 class MenuListener(unohelper.Base, XMenuListener):
