@@ -157,7 +157,7 @@ class MouseListener(unohelper.Base, XMouseListener):
 		xscriptcontext, formatstring, outputcolumn, callback = self.args
 		gridcontrol = mouseevent.Source  # グリッドコントロールを取得。
 		if mouseevent.Buttons==MouseButton.LEFT:
-			if mouseevent.ClickCount==2:  # ダブルクリックの時。
+			if mouseevent.ClickCount==1:  # シングルクリックでセルに入力する。
 				doc = xscriptcontext.getDocument()
 				selection = doc.getCurrentSelection()  # シート上で選択しているオブジェクトを取得。
 				if selection.supportsService("com.sun.star.sheet.SheetCell"):  # 選択オブジェクトがセルの時。
