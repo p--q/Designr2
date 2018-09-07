@@ -211,8 +211,8 @@ def createCopySheet(xscriptcontext, year):
 		os.mkdir(yeardirpath) 
 	def copySheet(sheetname, month):
 		if sheetname in sheets:  # シートがある時。
-			newdocpath = os.path.join(yeardirpath, "{}年{}月.ods".format(year, month))  
-			fileurl = unohelper.systemPathToFileUrl(newdocpath)
+			newdocpath = os.path.join(yeardirpath, "{}年{}月.ods".format(year, month))  # アーカイブファイルのフルパスを取得。
+			fileurl = unohelper.systemPathToFileUrl(newdocpath)  # fileurlに変換。
 			newfileurl = fileurl if os.path.exists(newdocpath) else "private:factory/scalc"
 			newdoc = desktop.loadComponentFromURL(newfileurl, "_blank", 0, ())  # 新規ドキュメントの取得。隠し属性だと行と列の固定ができない。
 			newsheets = newdoc.getSheets()  # 新規ドキュメントのシートコレクションを取得。
@@ -228,8 +228,8 @@ def createCopySheet(xscriptcontext, year):
 			newdoccontroller.freezeAtPosition(VARS.startcolumn, VARS.splittedrow)  # 行と列の固定をする。
 			if "Sheet1" in newsheets:
 				del newsheets["Sheet1"]  # 新規ドキュメントのデフォルトシートを削除する。1枚しかシートがない時はエラーになる。	
-			newdoc.storeAsURL(fileurl, ())  
-			newdoc.close(True)		
+			newdoc.storeAsURL(fileurl, ())  # アーカイブファイルを保存。  
+			newdoc.close(True)  # アーカイブファイルを閉じる。
 		else:
 			msg = "シート{}が存在しません。".format(sheetname)	
 			commons.showErrorMessageBox(controller, msg)	
