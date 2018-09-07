@@ -251,7 +251,7 @@ class MouseListener(unohelper.Base, XMouseListener):
 		selection = doc.getCurrentSelection()  # シート上で選択しているオブジェクトを取得。
 		if selection.supportsService("com.sun.star.sheet.SheetCell"):  # 選択オブジェクトがセルの時。
 			if len(selectedrowindexes)==1 and selectedrowindexes[0]>-1:  # グリッドコントロールの選択行インデックスが1つ、かつ、0以上の時のみ。
-				j = selectedrowindexes[0]
+				j = selectedrowindexes[0]  # グリッドコントロールの選択行インデックスを取得。
 				griddata = gridcontrol.getModel().getPropertyValue("GridDataModel")  # GridDataModelを取得。
 				rowdata = griddata.getRowData(j)  # グリッドコントロールで選択している行のすべての列をタプルで取得。
 				controller = doc.getCurrentController()  # 現在のコントローラを取得。			
