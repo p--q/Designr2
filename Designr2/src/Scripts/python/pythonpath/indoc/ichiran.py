@@ -3,6 +3,7 @@
 # 一覧シートについて。import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
 import os, unohelper, glob
 from indoc import commons, datedialog, points, transientdialog
+from com.sun.star.accessibility import AccessibleRole  # 定数
 from com.sun.star.awt import MouseButton, MessageBoxButtons, MessageBoxResults, ScrollBarOrientation # 定数
 from com.sun.star.awt.MessageBoxType import INFOBOX, QUERYBOX  # enum
 from com.sun.star.beans import PropertyValue  # Struct
@@ -32,6 +33,18 @@ def activeSpreadsheetChanged(activationevent, xscriptcontext):  # シートが�
 	sheet = activationevent.ActiveSheet  # アクティブになったシートを取得。
 	datarows = ("全部位終了消去", "", "印刷", "月末印刷", "過去月"),
 	sheet[0, :len(datarows[0])].setDataArray(datarows)
+	accessiblecontext = xscriptcontext.getDocument().getCurrentController().ComponentWindow.getAccessibleContext()  # コントローラーのアトリビュートからコンポーネントウィンドウを取得。
+	for i in range(accessiblecontext.getAccessibleChildCount()): 
+		childaccessiblecontext = accessiblecontext.getAccessibleChild(i).getAccessibleContext()
+		if childaccessiblecontext.getAccessibleRole()==AccessibleRole.SCROLL_PANE:
+			for j in range(childaccessiblecontext.getAccessibleChildCount()): 
+				child2 = childaccessiblecontext.getAccessibleChild(j)
+				childaccessiblecontext2 = child2.getAccessibleContext()
+				if childaccessiblecontext2.getAccessibleRole()==AccessibleRole.SCROLL_BAR:  # スクロールバーの時。
+					if child2.getOrientation()==ScrollBarOrientation.VERTICAL:  # 縦スクロールバーの時。
+						if childaccessiblecontext2.getBounds().Height>0:  # 右上枠の縦スクロールバーのHeghtが0になっている。
+							child2.setValue(0)  # 縦スクロールバーを一番上にする。
+							return  # breakだと二重ループは抜けれない。
 def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを押した時。controllerにコンテナウィンドウはない。
 	if enhancedmouseevent.ClickCount==2 and enhancedmouseevent.Buttons==MouseButton.LEFT:  # 左ダブルクリックの時。まずselectionChanged()が発火している。
 		selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
