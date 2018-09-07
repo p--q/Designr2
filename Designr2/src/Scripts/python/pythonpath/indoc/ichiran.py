@@ -3,7 +3,7 @@
 # 一覧シートについて。import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
 import os, unohelper, glob
 from indoc import commons, datedialog, points, transientdialog
-from com.sun.star.awt import MouseButton, MessageBoxButtons, MessageBoxResults # 定数
+from com.sun.star.awt import MouseButton, MessageBoxButtons, MessageBoxResults, ScrollBarOrientation # 定数
 from com.sun.star.awt.MessageBoxType import INFOBOX, QUERYBOX  # enum
 from com.sun.star.beans import PropertyValue  # Struct
 from com.sun.star.i18n.TransliterationModulesNew import FULLWIDTH_HALFWIDTH  # enum
@@ -108,7 +108,7 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 		dirpath = os.path.dirname(unohelper.fileUrlToSystemPath(doc.getURL()))  # このドキュメントのあるディレクトリのフルパスを取得。
 		defaultrows = [os.path.basename(i).split(".")[0] for i in glob.iglob(os.path.join(dirpath, "*", "*年*月.ods"), recursive=True)]  # *年*月のみリストに取得。
 		if defaultrows:
-			defaultrows.sort(reverse=True)  # 降順にソートする。
+			defaultrows.sort(key=lambda x: "{}{:0>2}".format(*x[:-1].split(x[4])))  # 年４桁固定、桁不定月との間に区切り文字が一文字、最後に月数でない文字列が一つあると決めつけて昇順でソートしている。
 			transientdialog.createDialog(xscriptcontext, txt, defaultrows, enhancedmouseevent=enhancedmouseevent, fixedtxt=txt, callback=callback_wClickGrid)  # fixedtxtでボタン名を入れなおしている(無駄)。
 		else:
 			msg = "過去のファイルはありません。"

@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 import unohelper  # import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
 from indoc import dialogcommons, staticdialog  # staticdialogのオブジェクトを複数流用している。
-from com.sun.star.awt import XMouseListener
-from com.sun.star.awt import MenuItemStyle, MouseButton, PopupMenuDirection, PosSize  # 定数
+from com.sun.star.accessibility import AccessibleRole  # 定数
+from com.sun.star.awt import XMouseListener, XWindowListener
+from com.sun.star.awt import MenuItemStyle, MouseButton, PopupMenuDirection, PosSize, ScrollBarOrientation  # 定数
 from com.sun.star.awt import MenuEvent, Rectangle  # Struct
 from com.sun.star.beans import NamedValue  # Struct
 from com.sun.star.util import XCloseListener
@@ -71,7 +72,7 @@ def createDialog(xscriptcontext, dialogtitle, defaultrows, outputcolumn=None, *,
 	dialogframe.addFrameActionListener(frameactionlistener)  # FrameActionListenerをダイアログフレームに追加。
 	controlcontainer.setVisible(True)  # コントロールの表示。
 	dialogwindow.setVisible(True) # ウィンドウの表示。これ以降WindowListenerが発火する。
-	windowlistener = staticdialog.WindowListener(controlcontainer, optioncontrolcontainer) # コンテナウィンドウからコントロールコンテナを取得する方法はないはずなので、ここで渡す。WindowListenerはsetVisible(True)で呼び出される。
+	windowlistener = WindowListener(controlcontainer, optioncontrolcontainer) # コンテナウィンドウからコントロールコンテナを取得する方法はないはずなので、ここで渡す。WindowListenerはsetVisible(True)で呼び出される。
 	dialogwindow.addWindowListener(windowlistener) # コンテナウィンドウにリスナーを追加する。
 	menulistener.args = dialogwindow, windowlistener, mouselistener
 	dialogstate = dialogcommons.getSavedData(doc, "dialogstate_{}".format(dialogtitle))  # 保存データを取得。optioncontrolcontainerの表示状態は常にFalseなので保存されていない。
@@ -193,3 +194,36 @@ class MouseListener(unohelper.Base, XMouseListener):
 		pass
 	def disposing(self, eventobject):
 		pass
+class WindowListener(unohelper.Base, XWindowListener):
+	def __init__(self, *args):
+		self.args = args
+		self.option = False  # optioncontrolcontainerを表示しているかのフラグ。
+	def windowResized(self, windowevent):
+		controlcontainer, optioncontrolcontainer = self.args
+		if self.option:  # optioncontrolcontainerを表示している時。
+			optioncontrolcontainer.setVisible(True)
+			newwidth, newheight = windowevent.Width, windowevent.Height
+			controlcontainerheight = newheight - optioncontrolcontainer.getSize().Height  # オプションコントロールコンテナの高さを除いた高さを取得。
+			optioncontrolcontainer.setPosSize(0, controlcontainerheight, newwidth, 0, PosSize.Y+PosSize.WIDTH)
+			controlcontainer.setPosSize(0, 0, newwidth, controlcontainerheight, PosSize.SIZE)
+		else:
+			optioncontrolcontainer.setVisible(False)
+			controlcontainer.setPosSize(0, 0, windowevent.Width, windowevent.Height, PosSize.SIZE)
+		scrollDown(controlcontainer.getControl("Grid1"))  # グリッドコントロールを下までスクロールする。
+	def windowMoved(self, windowevent):
+		pass
+	def windowShown(self, eventobject):
+		pass
+	def windowHidden(self, eventobject):
+		pass
+	def disposing(self, eventobject):
+		pass
+def scrollDown(gridcontrol):  # グリッドコントロールを下までスクロールする。	
+	accessiblecontext = gridcontrol.getAccessibleContext()  # グリッドコントロールのAccessibleContextを取得。
+	for i in range(accessiblecontext.getAccessibleChildCount()):  # 子要素のインデックスを走査する。
+		child = accessiblecontext.getAccessibleChild(i)  # 子要素を取得。
+		if child.getAccessibleContext().getAccessibleRole()==AccessibleRole.SCROLL_BAR:  # スクロールバーの時。
+			if child.getOrientation()==ScrollBarOrientation.VERTICAL:  # 縦スクロールバーの時。
+				child.setValue(0)  # 一旦0にしないといけない？
+				child.setValue(child.getMaximum())  # 最大値にスクロールさせる。
+				break	

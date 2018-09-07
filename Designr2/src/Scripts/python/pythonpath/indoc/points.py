@@ -209,13 +209,12 @@ def createCopySheet(xscriptcontext, year):
 	yeardirpath = os.path.join(dirpath, "{}年".format(year))  
 	if not os.path.exists(yeardirpath):
 		os.mkdir(yeardirpath) 
-	propertyvalues = PropertyValue(Name="Hidden", Value=True),  # 新しいドキュメントのプロパティ。
 	def copySheet(sheetname, month):
 		if sheetname in sheets:  # シートがある時。
 			newdocpath = os.path.join(yeardirpath, "{}年{}月.ods".format(year, month))  
 			fileurl = unohelper.systemPathToFileUrl(newdocpath)
 			newfileurl = fileurl if os.path.exists(newdocpath) else "private:factory/scalc"
-			newdoc = desktop.loadComponentFromURL(newfileurl, "_blank", 0, propertyvalues)  # 新規ドキュメントの取得。
+			newdoc = desktop.loadComponentFromURL(newfileurl, "_blank", 0, ())  # 新規ドキュメントの取得。隠し属性だと行と列の固定ができない。
 			newsheets = newdoc.getSheets()  # 新規ドキュメントのシートコレクションを取得。
 			if sheetname in newsheets:  # すでにシートが存在する時。
 				msg = "シート{}はすでに保存済です。\n上書きしますか？".format(sheetname)
@@ -223,7 +222,10 @@ def createCopySheet(xscriptcontext, year):
 				msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, QUERYBOX, MessageBoxButtons.BUTTONS_YES_NO+MessageBoxButtons.DEFAULT_BUTTON_YES, "myRs", msg)
 				if msgbox.execute()!=MessageBoxResults.YES:	 # YESではないときはこのまま終わる。
 					return	
-			newsheets.importSheet(doc, sheetname, len(newsheets))  # 新規ドキュメントのシートの最後にコピー。
+			newsheets.importSheet(doc, sheetname, len(newsheets))  # 新規ドキュメントのシートの最後にコピー。コピー先のシートの行と列の固定が解除されてしまう。
+			newdoccontroller = newdoc.getCurrentController()  # コピー先のドキュメントのコントローラを取得。	
+			newdoccontroller.setActiveSheet(newsheets[sheetname])  # コピーしたシートをアクティブにする。
+			newdoccontroller.freezeAtPosition(VARS.startcolumn, VARS.splittedrow)  # 行と列の固定をする。
 			if "Sheet1" in newsheets:
 				del newsheets["Sheet1"]  # 新規ドキュメントのデフォルトシートを削除する。1枚しかシートがない時はエラーになる。	
 			newdoc.storeAsURL(fileurl, ())  
