@@ -184,7 +184,7 @@ class MouseListener(unohelper.Base, XMouseListener):
 							datetxt = datetxt.split("(")[0]  # 2018-8-7という書式にする。
 							selection.setFormula(datetxt)  # 2018-8-7の書式で式としてセルに代入。
 							if callback is not None:  # コールバック関数が与えられている時。
-								callback(datetxt, xscriptcontext)
+								callback(datetxt)
 					for menuid in range(1, self.gridpopupmenu.getItemCount()+1):  # ポップアップメニューを走査する。
 						itemtext = self.gridpopupmenu.getItemText(menuid)  # 文字列にはショートカットキーがついてくる。
 						if itemtext.startswith("セル入力で閉じる"):
