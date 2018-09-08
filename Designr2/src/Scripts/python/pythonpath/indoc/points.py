@@ -168,6 +168,11 @@ def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを�
 					headertxt = VARS.sheet[VARS.splittedrow-1, c].getString()  # ヘッダー文字列を取得。
 					defaultrows = VARS.dic.get(headertxt, None)  # グリッドコントロールのデフォルト行を習得。
 					gridcontrol1, datarows = staticdialog.createDialog(enhancedmouseevent, xscriptcontext, headertxt, defaultrows, callback=callback_wClickPoints)  # 列ヘッダー毎に定型句ダイアログを作成。	
+					selection = enhancedmouseevent.Target
+					valtxt = selection.getString()  # セルの数値を文字列として取得。
+					if not valtxt:  # 空セルのときは0にする。
+						valtxt = "0"
+						selection.setValue(0)
 					txt = "{}:".format(enhancedmouseevent.Target.getString())  # セルの入っている数字を文字列で取得。
 					for i in range(len(datarows)):
 						if datarows[i][0].startswith(txt):
