@@ -30,7 +30,8 @@ class Ichiran():  # シート固有の値。
 		self.emptyrow = cellranges.getRangeAddresses()[-1].EndRow + 1  # ID列の最終行インデックス+1を取得。
 VARS = Ichiran()
 def activeSpreadsheetChanged(activationevent, xscriptcontext):  # シートがアクティブになった時。ドキュメントを開いた時は発火しない。よく誤入力されるセルを修正する。つまりボタンになっているセルの修正。
-	sheet = activationevent.ActiveSheet  # アクティブになったシートを取得。
+	initSheet(activationevent.ActiveSheet, xscriptcontext)
+def initSheet(sheet, xscriptcontext):	
 	datarows = ("全部位終了消去", "", "印刷", "月末印刷", "過去月"),
 	sheet[0, :len(datarows[0])].setDataArray(datarows)
 	accessiblecontext = xscriptcontext.getDocument().getCurrentController().ComponentWindow.getAccessibleContext()  # コントローラーのアトリビュートからコンポーネントウィンドウを取得。
@@ -122,7 +123,7 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 		defaultrows = [os.path.basename(i).split(".")[0] for i in glob.iglob(os.path.join(dirpath, "*", "*年*月.ods"), recursive=True)]  # *年*月のみリストに取得。
 		if defaultrows:
 			defaultrows.sort(key=lambda x: "{}{:0>2}".format(*x[:-1].split(x[4])))  # 年４桁固定、桁不定月との間に区切り文字が一文字、最後に月数でない文字列が一つあると決めつけて昇順でソートしている。
-			transientdialog.createDialog(xscriptcontext, txt, defaultrows, enhancedmouseevent=enhancedmouseevent, fixedtxt=txt, callback=callback_wClickGrid)  # fixedtxtでボタン名を入れなおしている(無駄)。
+			transientdialog.createDialog(xscriptcontext, txt, defaultrows, enhancedmouseevent=enhancedmouseevent, callback=callback_wClickGridCreator(xscriptcontext, txt))  # fixedtxtでボタン名を入れなおしている(無駄)。
 		else:
 			msg = "過去のファイルはありません。"
 			commons.showErrorMessageBox(controller, msg)
@@ -145,12 +146,15 @@ def printPointsSheets(xscriptcontext):
 	componentwindow = controller.ComponentWindow
 	msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, INFOBOX, MessageBoxButtons.BUTTONS_OK, "myRs", msg)
 	msgbox.execute()
-def callback_wClickGrid(gridcelldata, xscriptcontext):  # gridcelldata: グリッドコントロールのダブルクリックしたセルのデータ。	
-	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 	
-	dirpath = os.path.dirname(unohelper.fileUrlToSystemPath(doc.getURL()))  # このドキュメントのあるディレクトリのフルパスを取得。	
-	systempath = next(glob.iglob(os.path.join(dirpath, "*", "{}.ods".format(gridcelldata)), recursive=True))  # ファイルパスを取得。	
-	fileurl = unohelper.systemPathToFileUrl(systempath)	
-	xscriptcontext.getDesktop().loadComponentFromURL(fileurl, "_blank", 0, ())  # ファイルを開く。
+def callback_wClickGridCreator(xscriptcontext, txt):
+	def callback_wClickGrid(gridcelldata):  # gridcelldata: グリッドコントロールのダブルクリックしたセルのデータ。	
+		doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 	
+		doc.getCurrentSelection().setString(txt)  # ボタン名を入力し直す。
+		dirpath = os.path.dirname(unohelper.fileUrlToSystemPath(doc.getURL()))  # このドキュメントのあるディレクトリのフルパスを取得。	
+		systempath = next(glob.iglob(os.path.join(dirpath, "*", "{}.ods".format(gridcelldata)), recursive=True))  # ファイルパスを取得。	
+		fileurl = unohelper.systemPathToFileUrl(systempath)	
+		xscriptcontext.getDesktop().loadComponentFromURL(fileurl, "_blank", 0, ())  # ファイルを開く。
+	return callback_wClickGrid
 def wClickPt(enhancedmouseevent, xscriptcontext):
 	selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
 	sheet = VARS.sheet

@@ -167,7 +167,7 @@ def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを�
 				if (c-VARS.startcolumn)%8!=7:  # 部位の最終行以外の時。
 					headertxt = VARS.sheet[VARS.splittedrow-1, c].getString()  # ヘッダー文字列を取得。
 					defaultrows = VARS.dic.get(headertxt, None)  # グリッドコントロールのデフォルト行を習得。
-					gridcontrol1, datarows = staticdialog.createDialog(enhancedmouseevent, xscriptcontext, headertxt, defaultrows, callback=callback_wClickPoints)  # 列ヘッダー毎に定型句ダイアログを作成。	
+					gridcontrol1, datarows = staticdialog.createDialog(enhancedmouseevent, xscriptcontext, headertxt, defaultrows, callback=callback_wClickPointsCreator(xscriptcontext))  # 列ヘッダー毎に定型句ダイアログを作成。	
 					selection = enhancedmouseevent.Target
 					valtxt = selection.getString()  # セルの数値を文字列として取得。
 					if not valtxt:  # 空セルのときは0にする。
@@ -239,11 +239,13 @@ def createCopySheet(xscriptcontext, year):
 			msg = "シート{}が存在しません。".format(sheetname)	
 			commons.showErrorMessageBox(controller, msg)	
 	return copySheet
-def callback_wClickPoints(gridcelldata, xscriptcontext):
-	selection = xscriptcontext.getDocument().getCurrentSelection()  # シート上で選択しているオブジェクトを取得。
-	selection.setValue(int(gridcelldata.split(":", 1)[0]))  # 点数のみにして数値としてセルに代入し直す。
-	celladdress = selection.getCellAddress()
-	reCalc(celladdress.Row, celladdress.Column)  # 部位別合計点と日の最低点を計算。
+def callback_wClickPointsCreator(xscriptcontext):
+	def callback_wClickPoints(gridcelldata):
+		selection = xscriptcontext.getDocument().getCurrentSelection()  # シート上で選択しているオブジェクトを取得。
+		selection.setValue(int(gridcelldata.split(":", 1)[0]))  # 点数のみにして数値としてセルに代入し直す。
+		celladdress = selection.getCellAddress()
+		reCalc(celladdress.Row, celladdress.Column)  # 部位別合計点と日の最低点を計算。
+	return callback_wClickPoints
 def selectionChanged(eventobject, xscriptcontext):  # 矢印キーでセル移動した時も発火する。
 	selection = eventobject.Source.getSelection()
 	if selection.supportsService("com.sun.star.sheet.SheetCellRange"):  # 選択範囲がセル範囲の時。
