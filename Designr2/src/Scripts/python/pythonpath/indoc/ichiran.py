@@ -210,6 +210,20 @@ def selectionChanged(eventobject, xscriptcontext):  # 矢印キーでセル移�
 	if selection.supportsService("com.sun.star.sheet.SheetCellRange"):  # 選択範囲がセル範囲の時。
 		VARS.setSheet(selection.getSpreadsheet())		
 		drowBorders(selection)  # 枠線の作成。
+def printSheets(xscriptcontext, sheets):
+	pointsvars = points.VARS	
+	for i in sheets:  # 全シートをイテレート。非表示シートもイテレートされる。
+		sheetname = i.getName()  # シート名を取得。
+		if sheetname.startswith("00000000"):  # テンプレートの時。
+			sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
+		elif sheetname.isdigit():  # シート名が数字のみの時のみ。		
+			pointsvars.setSheet(i)  # シートによって変化する値を取得。
+			i[0, :pointsvars.daycolumn].clearContents(CellFlags.STRING)  # ボタンセルを消去する。印刷しないので。シートをアクティブしたときに再度ボタンセルに文字列を代入する。
+			i.setPrintAreas((i[:pointsvars.emptyrow, :pointsvars.emptycolumn].getRangeAddress(),))  # 印刷範囲を設定。			
+		else:  # シート名が数字以外のシートはすべて先頭にもってくる。
+			sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
+	sheets.moveByName("一覧", 0)  # 一覧シートを一番先頭にする。
+	printPointsSheets(xscriptcontext)		
 def drowBorders(selection):  # ターゲットを交点とする行列全体の外枠線を描く。
 	celladdress = selection[0, 0].getCellAddress()  # 選択範囲の左上端のセルアドレスを取得。
 	r = celladdress.Row  # selectionの行と列のインデックスを取得。	
