@@ -3,7 +3,8 @@
 # 一覧シートについて。import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
 import os, unohelper, glob
 from indoc import commons, datedialog, points, transientdialog
-from com.sun.star.awt import MouseButton, MessageBoxButtons, MessageBoxResults # 定数
+from com.sun.star.accessibility import AccessibleRole  # 定数
+from com.sun.star.awt import MouseButton, MessageBoxButtons, MessageBoxResults, ScrollBarOrientation # 定数
 from com.sun.star.awt.MessageBoxType import INFOBOX, QUERYBOX  # enum
 from com.sun.star.beans import PropertyValue  # Struct
 from com.sun.star.i18n.TransliterationModulesNew import FULLWIDTH_HALFWIDTH  # enum
@@ -32,6 +33,18 @@ def activeSpreadsheetChanged(activationevent, xscriptcontext):  # シートが�
 	sheet = activationevent.ActiveSheet  # アクティブになったシートを取得。
 	datarows = ("全部位終了消去", "", "印刷", "月末印刷", "過去月"),
 	sheet[0, :len(datarows[0])].setDataArray(datarows)
+	accessiblecontext = xscriptcontext.getDocument().getCurrentController().ComponentWindow.getAccessibleContext()  # コントローラーのアトリビュートからコンポーネントウィンドウを取得。
+	for i in range(accessiblecontext.getAccessibleChildCount()): 
+		childaccessiblecontext = accessiblecontext.getAccessibleChild(i).getAccessibleContext()
+		if childaccessiblecontext.getAccessibleRole()==AccessibleRole.SCROLL_PANE:
+			for j in range(childaccessiblecontext.getAccessibleChildCount()): 
+				child2 = childaccessiblecontext.getAccessibleChild(j)
+				childaccessiblecontext2 = child2.getAccessibleContext()
+				if childaccessiblecontext2.getAccessibleRole()==AccessibleRole.SCROLL_BAR:  # スクロールバーの時。
+					if child2.getOrientation()==ScrollBarOrientation.VERTICAL:  # 縦スクロールバーの時。
+						if childaccessiblecontext2.getBounds().Height>0:  # 右上枠の縦スクロールバーのHeghtが0になっている。
+							child2.setValue(0)  # 縦スクロールバーを一番上にする。
+							return  # breakだと二重ループは抜けれない。
 def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを押した時。controllerにコンテナウィンドウはない。
 	if enhancedmouseevent.ClickCount==2 and enhancedmouseevent.Buttons==MouseButton.LEFT:  # 左ダブルクリックの時。まずselectionChanged()が発火している。
 		selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
@@ -108,7 +121,7 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 		dirpath = os.path.dirname(unohelper.fileUrlToSystemPath(doc.getURL()))  # このドキュメントのあるディレクトリのフルパスを取得。
 		defaultrows = [os.path.basename(i).split(".")[0] for i in glob.iglob(os.path.join(dirpath, "*", "*年*月.ods"), recursive=True)]  # *年*月のみリストに取得。
 		if defaultrows:
-			defaultrows.sort(reverse=True)  # 降順にソートする。
+			defaultrows.sort(key=lambda x: "{}{:0>2}".format(*x[:-1].split(x[4])))  # 年４桁固定、桁不定月との間に区切り文字が一文字、最後に月数でない文字列が一つあると決めつけて昇順でソートしている。
 			transientdialog.createDialog(xscriptcontext, txt, defaultrows, enhancedmouseevent=enhancedmouseevent, fixedtxt=txt, callback=callback_wClickGrid)  # fixedtxtでボタン名を入れなおしている(無駄)。
 		else:
 			msg = "過去のファイルはありません。"
@@ -197,6 +210,20 @@ def selectionChanged(eventobject, xscriptcontext):  # 矢印キーでセル移�
 	if selection.supportsService("com.sun.star.sheet.SheetCellRange"):  # 選択範囲がセル範囲の時。
 		VARS.setSheet(selection.getSpreadsheet())		
 		drowBorders(selection)  # 枠線の作成。
+def printSheets(xscriptcontext, sheets):
+	pointsvars = points.VARS	
+	for i in sheets:  # 全シートをイテレート。非表示シートもイテレートされる。
+		sheetname = i.getName()  # シート名を取得。
+		if sheetname.startswith("00000000"):  # テンプレートの時。
+			sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
+		elif sheetname.isdigit():  # シート名が数字のみの時のみ。		
+			pointsvars.setSheet(i)  # シートによって変化する値を取得。
+			i[0, :pointsvars.daycolumn].clearContents(CellFlags.STRING)  # ボタンセルを消去する。印刷しないので。シートをアクティブしたときに再度ボタンセルに文字列を代入する。
+			i.setPrintAreas((i[:pointsvars.emptyrow, :pointsvars.emptycolumn].getRangeAddress(),))  # 印刷範囲を設定。			
+		else:  # シート名が数字以外のシートはすべて先頭にもってくる。
+			sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
+	sheets.moveByName("一覧", 0)  # 一覧シートを一番先頭にする。
+	printPointsSheets(xscriptcontext)		
 def drowBorders(selection):  # ターゲットを交点とする行列全体の外枠線を描く。
 	celladdress = selection[0, 0].getCellAddress()  # 選択範囲の左上端のセルアドレスを取得。
 	r = celladdress.Row  # selectionの行と列のインデックスを取得。	
