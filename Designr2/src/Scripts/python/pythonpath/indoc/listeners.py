@@ -4,7 +4,9 @@
 import unohelper  # オートメーションには必須(必須なのはuno)。
 from indoc.commons import getModule # 相対インポートはできない。
 from indoc import exceptiondialog2
-from com.sun.star.awt import XEnhancedMouseClickHandler
+from com.sun.star.awt import XEnhancedMouseClickHandler, XMouseMotionListener
+from com.sun.star.awt import KeyEvent  # Struct
+from com.sun.star.awt import Key  # 定数
 from com.sun.star.document import XDocumentEventListener
 from com.sun.star.sheet import XActivationEventListener
 from com.sun.star.ui import XContextMenuInterceptor
@@ -33,8 +35,25 @@ def addLinsteners(tdocimport, modulefolderpath, xscriptcontext):  # 引数は文
 	controller.addActivationEventListener(activationeventlistener)
 	controller.addEnhancedMouseClickHandler(enhancedmouseclickhandler)
 	controller.registerContextMenuInterceptor(contextmenuinterceptor)
+	
+# 	docframe = doc.getCurrentController().getFrame()  # モデル→コントローラ→フレーム、でドキュメントのフレームを取得。
+# 	containerwindow = doc.getCurrentController().getFrame().getContainerWindow()  # ドキュメントのウィンドウ(コンテナウィンドウ=ピア)を取得。
+
+# 	import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
+	
+	mousemotionlistener = MouseMotionListener()
+	componentwindow = controller.ComponentWindow
+	componentwindow.addMouseMotionListener(mousemotionlistener)
+	
+	
+	for window in componentwindow.getWindows():
+		window.addMouseMotionListener(mousemotionlistener)
+	
+	
+	
+	
 	invokeModuleMethod(None, "documentOnLoad", xscriptcontext)  # ドキュメントを開いた時に実行するメソッド。リスナー追加後。
-	listeners = changeslistener, selectionchangelistener, activationeventlistener, enhancedmouseclickhandler, contextmenuinterceptor
+	listeners = changeslistener, selectionchangelistener, activationeventlistener, enhancedmouseclickhandler, contextmenuinterceptor, mousemotionlistener
 	doc.addDocumentEventListener(DocumentEventListener(xscriptcontext, tdocimport, modulefolderpath, controller, *listeners))  # DocumentEventListener。ドキュメントとコントローラに追加したリスナーの除去に利用。
 class DocumentEventListener(unohelper.Base, XDocumentEventListener):
 	def __init__(self, xscriptcontext, *args):
@@ -43,14 +62,21 @@ class DocumentEventListener(unohelper.Base, XDocumentEventListener):
 	def documentEventOccured(self, documentevent):
 		eventname = documentevent.EventName
 		if eventname=="OnUnload":  # ドキュメントを閉じる時。リスナーを除去する。
-			tdocimport, modulefolderpath, controller, changeslistener, selectionchangelistener, activationeventlistener, enhancedmouseclickhandler, contextmenuinterceptor = self.args
+			tdocimport, modulefolderpath, controller, changeslistener, selectionchangelistener, activationeventlistener, enhancedmouseclickhandler, contextmenuinterceptor, mousemotionlistener = self.args
 			tdocimport.remove_meta(modulefolderpath)  # modulefolderpathをメタパスから除去する。
 			documentevent.Source.removeChangesListener(changeslistener)
 			controller.removeSelectionChangeListener(selectionchangelistener)
 			controller.removeActivationEventListener(activationeventlistener)
 			controller.removeEnhancedMouseClickHandler(enhancedmouseclickhandler)
 			controller.releaseContextMenuInterceptor(contextmenuinterceptor)
-			invokeModuleMethod(None, "documentUnLoad", self.xscriptcontext)  # ドキュメントを閉じた時に実行するメソッド。
+			
+			
+			componentwindow = controller.ComponentWindow
+			componentwindow.removeMouseMotionListener(mousemotionlistener)
+			for window in componentwindow.getWindows():
+				window.removeMouseMotionListener(mousemotionlistener)
+
+			invokeModuleMethod(None, "documentUnLoad", self.xscriptcontext)  # ドキュメントを閉じた時に実行するメソッド。リスナー削除後。
 	def disposing(self, eventobject):  # ドキュメントを閉じるときに発火する。	
 		eventobject.Source.removeDocumentEventListener(self)
 class ActivationEventListener(unohelper.Base, XActivationEventListener):
@@ -78,6 +104,29 @@ class EnhancedMouseClickHandler(unohelper.Base, XEnhancedMouseClickHandler):  # 
 		return True  # シングルクリックでFalseを返すとセル選択範囲の決定の状態になってどうしようもなくなる。
 	def disposing(self, eventobject):  # eventobject.SourceはNone。
 		self.xscriptcontext.getDocument().getCurrentController().removeEnhancedMouseClickHandler(self)
+		
+		
+class MouseMotionListener(unohelper.Base, XMouseMotionListener):
+	def mouseDragged(self, mouseevent):
+		
+		
+		import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
+		
+		
+# 		componentwindow	= mouseevent.Source
+# # 		componentwindow	= controller.ComponentWindow  # コンポーネントウィンドウを取得。
+# 		keyevent = KeyEvent(KeyCode=Key.ESCAPE, KeyChar=chr(0x1b), Modifiers=0, KeyFunc=0, Source=componentwindow)  # EscキーのKeyEventを取得。
+# 		toolkit = componentwindow.getToolkit()  # ツールキットを取得。
+# 		toolkit.keyPress(keyevent)  # キーを押す、をシミュレート。
+# 		toolkit.keyRelease(keyevent)  # キーを離す、をシミュレート。		
+		return False
+
+	def mouseMoved(self, mouseevent):
+		return False
+	def disposing(self, eventobject):
+		pass
+	
+	
 class SelectionChangeListener(unohelper.Base, XSelectionChangeListener):
 	def __init__(self, xscriptcontext):
 		self.xscriptcontext = xscriptcontext
