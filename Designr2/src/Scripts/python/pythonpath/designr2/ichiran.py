@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # 一覧シートについて。import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
 import os, unohelper, glob
-from indoc import commons, datedialog, points, transientdialog
+from . import commons, datedialog, points, transientdialog
 from com.sun.star.accessibility import AccessibleRole  # 定数
 from com.sun.star.awt import MouseButton, MessageBoxButtons, MessageBoxResults, ScrollBarOrientation # 定数
 from com.sun.star.awt.MessageBoxType import INFOBOX, QUERYBOX  # enum

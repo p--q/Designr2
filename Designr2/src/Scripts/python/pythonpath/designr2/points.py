@@ -3,7 +3,7 @@
 # IDシートについて。import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
 import unohelper, os
 from collections import OrderedDict
-from indoc import commons, staticdialog, ichiran
+from . import commons, staticdialog, ichiran
 from com.sun.star.awt import MouseButton, MessageBoxButtons, MessageBoxResults # 定数
 from com.sun.star.awt.MessageBoxType import QUERYBOX, WARNINGBOX  # enum
 from com.sun.star.beans import PropertyValue  # Struct
