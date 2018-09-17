@@ -1,7 +1,7 @@
 #!/opt/libreoffice5.4/program/python
 # -*- coding: utf-8 -*-
 import os, unohelper
-from . import ichiran, points, documentevent
+from pqdesignr2 import ichiran, points, documentevent  # Contextmenuの呼び出しは相対インポートではエラーになる。
 from com.sun.star.awt import MessageBoxButtons  # 定数
 from com.sun.star.awt.MessageBoxType import ERRORBOX  # enum
 from com.sun.star.datatransfer import XTransferable
