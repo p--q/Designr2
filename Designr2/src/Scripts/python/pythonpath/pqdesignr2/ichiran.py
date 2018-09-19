@@ -90,34 +90,40 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 						points.createCopySheet(xscriptcontext, y)(sheetname, m)  # 現在のシートを年月名のファイルにコピーする。
 						sheets.removeByName(sheetname)
 	elif txt=="印刷":  # 一覧と00000000以外のシートをすべて印刷。
+		startpage = 1  # 印刷開始ページ番号。
+		nonprintids = []
+		if VARS.splittedrow<VARS.blackrow:  # 黒行より上にIDがある時。
+			nonprintids = [i[0] for i in VARS.sheet[VARS.splittedrow:VARS.blackrow, VARS.idcolumn].getDataArray()]  # 黒行より上のIDのリストを取得。
 		for i in sheets:  # 全シートをイテレート。非表示シートもイテレートされる。
 			sheetname = i.getName()  # シート名を取得。
 			if sheetname.startswith("00000000"):  # テンプレートの時。
-				sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
-			elif sheetname.isdigit():  # シート名が数字のみの時のみ。		
-				pointsvars.setSheet(i)  # シートによって変化する値を取得。
-				i[0, :pointsvars.daycolumn].clearContents(CellFlags.STRING)  # ボタンセルを消去する。印刷しないので。シートをアクティブしたときに再度ボタンセルに文字列を代入する。
-				i.setPrintAreas((i[:pointsvars.emptyrow, :pointsvars.emptycolumn].getRangeAddress(),))  # 印刷範囲を設定。			
+				startpage = handleNonPrintSheet(sheets, i, sheetname, startpage)
+			elif sheetname.isdigit():  # シート名が数字のみの時のみ。	
+				if sheetname in nonprintids:  # 黒行より上にあるIDのシートは印刷しない。
+					startpage = handleNonPrintSheet(sheets, i, sheetname, startpage)
+				else:
+					pointsvars.setSheet(i)  # シートによって変化する値を取得。
+					i[0, :pointsvars.daycolumn].clearContents(CellFlags.STRING)  # ボタンセルを消去する。印刷しないので。シートをアクティブしたときに再度ボタンセルに文字列を代入する。
+					i.setPrintAreas((i[:pointsvars.emptyrow, :pointsvars.emptycolumn].getRangeAddress(),))  # 印刷範囲を設定。			
 			else:  # シート名が数字以外のシートはすべて先頭にもってくる。
-				sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
+				startpage = handleNonPrintSheet(sheets, i, sheetname, startpage)
 		sheets.moveByName("一覧", 0)  # 一覧シートを一番先頭にする。
-		printPointsSheets(xscriptcontext)
+		printPointsSheets(xscriptcontext, startpage)
 	elif txt=="月末印刷":
+		startpage = 1  # 印刷開始ページ番号。
 		for i in sheets:  # 全シートをイテレート。非表示シートもイテレートされる。
 			sheetname = i.getName()  # シート名を取得。
 			if sheetname.startswith("00000000"):  # テンプレートの時。
-				sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
-				i.setPrintAreas((i[0, 0].getRangeAddress(),))  # 印刷範囲を設定。印刷しないページは1ページで収まるようにする。	
+				startpage = handleNonPrintSheet(sheets, i, sheetname, startpage)
 			elif sheetname.isdigit():  # シート名が数字のみの時のみ。		
 				pointsvars.setSheet(i)  # シートによって変化する値を取得。
 				points.fillToEndDayRow(doc, pointsvars.emptyrow-1)  # 最終日まで埋める。
 				i[0, :pointsvars.daycolumn].clearContents(CellFlags.STRING)  # ボタンセルを消去する。印刷しないので。シートをアクティブしたときに再度ボタンセルに文字列を代入する。
 				i.setPrintAreas((i[:pointsvars.emptyrow, :pointsvars.emptycolumn].getRangeAddress(),))  # 印刷範囲を設定。			
 			else:  # シート名が数字以外のシートはすべて先頭にもってくる。
-				sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
-				i.setPrintAreas((i[0, 0].getRangeAddress(),))  # 印刷範囲を設定。印刷しないページは1ページで収まるようにする。	
+				startpage = handleNonPrintSheet(sheets, i, sheetname, startpage)
 		sheets.moveByName("一覧", 0)  # 一覧シートを一番先頭にする。		
-		printPointsSheets(xscriptcontext)
+		printPointsSheets(xscriptcontext, startpage)
 	elif txt=="過去月":
 		dirpath = os.path.dirname(unohelper.fileUrlToSystemPath(doc.getURL()))  # このドキュメントのあるディレクトリのフルパスを取得。
 		defaultrows = [os.path.basename(i).split(".")[0] for i in glob.iglob(os.path.join(dirpath, "*", "*年*月.ods"), recursive=True)]  # *年*月のみリストに取得。
@@ -127,8 +133,12 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 		else:
 			msg = "過去のファイルはありません。"
 			commons.showErrorMessageBox(controller, msg)
-	return False  # セル編集モードにしない。			
-def printPointsSheets(xscriptcontext):
+	return False  # セル編集モードにしない。		
+def handleNonPrintSheet(sheets, sheet, sheetname, startpage):
+	sheet.setPrintAreas((sheet[0, 0].getRangeAddress(),))  # 印刷範囲を設定。印刷しないページは1ページで収まるようにする。	
+	sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
+	return startpage + 1  # 開始ページをずらす。
+def printPointsSheets(xscriptcontext, startpage):
 	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 
 	doc.getStyleFamilies()["PageStyles"]["Default"].setPropertyValues(("HeaderIsOn", "FooterIsOn"), (False, False))  # ヘッダーとフッターを付けない。
 	controller = doc.getCurrentController()
@@ -139,9 +149,9 @@ def printPointsSheets(xscriptcontext):
 	ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
 	smgr = ctx.getServiceManager()  # サービスマネージャーの取得。		
 	dispatcher = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx)		
-	dispatcher.executeDispatch(controller.getFrame(), ".uno:TableSelectAll", "", 0, ())  # すべての表示シートを選択。非表示シートは選択されない。	
-	propertyvalues = PropertyValue(Name="Pages", Value="3-"),	
-	doc.print(propertyvalues)  # 一覧シート、00000000シート、を除いた3ページ以降のみ印刷。
+	dispatcher.executeDispatch(controller.getFrame(), ".uno:TableSelectAll", "", 0, ())  # すべてのシートを選択。非表示シートも選択される。
+	propertyvalues = PropertyValue(Name="Pages", Value="{}-".format(startpage)),  # 印刷ページの指定。	
+	doc.print(propertyvalues)  # startpage以降のみ印刷。
 	msg = "{}で印刷しました。".format(printername)
 	componentwindow = controller.ComponentWindow
 	msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, INFOBOX, MessageBoxButtons.BUTTONS_OK, "myRs", msg)
@@ -274,6 +284,11 @@ def notifyContextMenuExecute(contextmenuexecuteevent, xscriptcontext):  # 右ク
 	addMenuentry = commons.menuentryCreator(contextmenu)  # 引数のActionTriggerContainerにインデックス0から項目を挿入する関数を取得。
 	baseurl = commons.getBaseURL(xscriptcontext)  # ScriptingURLのbaseurlを取得。
 	del contextmenu[:]  # contextmenu.clear()は不可。
+	ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
+	smgr = ctx.getServiceManager()  # サービスマネージャーの取得。		
+	dispatcher = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx)		
+	dispatcher.executeDispatch(controller.getFrame(), ".uno:TableDeselectAll", "", 0, ())  # すべてのシートの選択を解除。
+	VARS.setSheet(sheet)  # 変数を取得し直す。
 	selection = controller.getSelection()  # 現在選択しているセル範囲を取得。
 	celladdress = selection[0, 0].getCellAddress()  # 選択範囲の左上角のセルのアドレスを取得。
 	r = celladdress.Row  # selectionの行と列のインデックスを取得。		
