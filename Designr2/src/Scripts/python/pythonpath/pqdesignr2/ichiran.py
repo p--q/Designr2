@@ -47,7 +47,7 @@ def initSheet(sheet, xscriptcontext):
 							child2.setValue(0)  # 縦スクロールバーを一番上にする。
 							return  # breakだと二重ループは抜けれない。
 def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを押した時。controllerにコンテナウィンドウはない。
-	if enhancedmouseevent.ClickCount==2 and enhancedmouseevent.Buttons==MouseButton.LEFT:  # 左ダブルクリックの時。まずselectionChanged()が発火している。
+	if enhancedmouseevent.Buttons==MouseButton.LEFT and enhancedmouseevent.ClickCount==2:  # 左ダブルクリックの時。まずselectionChanged()が発火している。
 		selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
 		if selection.supportsService("com.sun.star.sheet.SheetCell"):  # ターゲットがセルの時。
 			celladdress = selection.getCellAddress()
