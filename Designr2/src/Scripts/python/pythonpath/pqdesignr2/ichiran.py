@@ -90,6 +90,10 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 						points.createCopySheet(xscriptcontext, y)(sheetname, m)  # 現在のシートを年月名のファイルにコピーする。
 						sheets.removeByName(sheetname)
 	elif txt=="印刷":  # 一覧と00000000以外のシートをすべて印刷。
+		
+		
+# 		import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
+		
 		startpage = 1  # 印刷開始ページ番号。
 		nonprintids = []
 		if VARS.splittedrow<VARS.blackrow:  # 黒行より上にIDがある時。
@@ -276,7 +280,12 @@ def changesOccurred(changesevent, xscriptcontext):  # Sourceにはドキュメ�
 							sheet[r, c].setString("{:0>8}".format(txt))  # 数値を8桁にして文字列として代入し直す。
 					elif c==kanjicolumn:
 						sheet[r, c].setString(txt.replace("　", " "))  # 全角スペースを半角スペースに置換。
+						
+						
+						
 def notifyContextMenuExecute(contextmenuexecuteevent, xscriptcontext):  # 右クリックメニュー。	
+	
+	
 	controller = contextmenuexecuteevent.Selection  # コントローラーは逐一取得しないとgetSelection()が反映されない。
 	sheet = controller.getActiveSheet()  # アクティブシートを取得。
 	contextmenu = contextmenuexecuteevent.ActionTriggerContainer  # コンテクストメニューコンテナの取得。
@@ -289,9 +298,16 @@ def notifyContextMenuExecute(contextmenuexecuteevent, xscriptcontext):  # 右ク
 	dispatcher = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx)		
 	dispatcher.executeDispatch(controller.getFrame(), ".uno:TableDeselectAll", "", 0, ())  # すべてのシートの選択を解除。
 	VARS.setSheet(sheet)  # 変数を取得し直す。
+		
 	selection = controller.getSelection()  # 現在選択しているセル範囲を取得。
+	
+# 	contextmenuname, selection, r, c, baseurl, addMenuentry = aaaa()
+	
+	
 	celladdress = selection[0, 0].getCellAddress()  # 選択範囲の左上角のセルのアドレスを取得。
-	r = celladdress.Row  # selectionの行と列のインデックスを取得。		
+	r = celladdress.Row  # selectionの行と列のインデックスを取得。	
+	
+	
 	if r<VARS.splittedrow or r==VARS.blackrow:  # 固定行より上、または黒行の時はコンテクストメニューを表示しない。
 		return EXECUTE_MODIFIED
 	elif contextmenuname=="cell":  # セルのとき。セル範囲も含む。
@@ -300,7 +316,7 @@ def notifyContextMenuExecute(contextmenuexecuteevent, xscriptcontext):  # 右ク
 		addMenuentry("ActionTrigger", {"CommandURL": ".uno:PasteSpecial"})		
 		addMenuentry("ActionTriggerSeparator", {"SeparatorType": ActionTriggerSeparatorType.LINE})  # セパレーターを挿入。
 		addMenuentry("ActionTrigger", {"Text": "クリア", "CommandURL": baseurl.format("entry1")}) 
-	elif contextmenuname=="rowheader" and len(selection[0, :].getColumns())==len(sheet[0, :].getColumns()):  # 行ヘッダーのとき、かつ、選択範囲の列数がシートの列数が一致している時。	
+	elif contextmenuname=="rowheader" and len(selection[0, :].getColumns())==len(VARS.sheet[0, :].getColumns()):  # 行ヘッダーのとき、かつ、選択範囲の列数がシートの列数が一致している時。	
 		if r>=VARS.splittedrow:
 			if r<VARS.blackrow:
 				addMenuentry("ActionTrigger", {"Text": "使用中最上行へ", "CommandURL": baseurl.format("entry15")})  # 黒行上から使用中最上行へ
