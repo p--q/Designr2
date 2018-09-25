@@ -264,25 +264,9 @@ def drowBorders(selection):  # ターゲットを交点とする行列全体の�
 		sheet[VARS.splittedrow-1:VARS.emptyrow, rangeaddress.StartColumn:edgecolmun].setPropertyValue("TableBorder2", leftrighttableborder)  # 列の左右に枠線を引く。
 		selection.setPropertyValue("TableBorder2", tableborder2)  # 選択範囲の消えた枠線を引き直す。		
 def notifyContextMenuExecute(contextmenuexecuteevent, xscriptcontext):  # 右クリックメニュー。	
-	
-				
-	controller = contextmenuexecuteevent.Selection  # コントローラーは逐一取得しないとgetSelection()が反映されない。
-	contextmenu = contextmenuexecuteevent.ActionTriggerContainer  # コンテクストメニューコンテナの取得。
-	contextmenuname = contextmenu.getName().rsplit("/")[-1]  # コンテクストメニューの名前を取得。
-	addMenuentry = commons.menuentryCreator(contextmenu)  # 引数のActionTriggerContainerにインデックス0から項目を挿入する関数を取得。
-	baseurl = commons.getBaseURL(xscriptcontext)  # ScriptingURLのbaseurlを取得。
-	del contextmenu[:]  # contextmenu.clear()は不可。
-	ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
-	smgr = ctx.getServiceManager()  # サービスマネージャーの取得。		
-	dispatcher = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx)		
-	dispatcher.executeDispatch(controller.getFrame(), ".uno:TableDeselectAll", "", 0, ())  # すべてのシートの選択を解除。
-	VARS.setSheet(controller.getActiveSheet())  # 変数を取得し直す。
-	selection = controller.getSelection()  # 現在選択しているセル範囲を取得。
+	contextmenuname, addMenuentry, baseurl, selection = commons.contextmenuHelper(VARS, contextmenuexecuteevent, xscriptcontext)
 	celladdress = selection[0, 0].getCellAddress()  # 選択範囲の左上角のセルのアドレスを取得。
 	r, c = celladdress.Row, celladdress.Column  # selectionの行と列のインデックスを取得。		
-# 	contextmenuname, selection, r, c, baseurl, addMenuentry = aaaa()
-	
-	
 	if contextmenuname=="cell":  # セルのとき	
 		if selection.supportsService("com.sun.star.sheet.SheetCell"):  # ターゲットがセルの時。
 			if r==0 and (c-VARS.startcolumn)%8==0:  # 部位セルの時。
