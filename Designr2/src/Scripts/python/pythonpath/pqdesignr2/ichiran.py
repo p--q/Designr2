@@ -16,10 +16,11 @@ class Ichiran():  # シート固有の値。
 	def __init__(self):
 		self.menurow = 0
 		self.splittedrow = 2  # 分割行インデックス。
-		self.idcolumn = 0  # ID列インデックス。	
-		self.kanjicolumn = 1  # 漢字列インデックス。	
-		self.startdaycolumn = 2 # 開始日列インデックス。
-		self.enddaycolumn = 3  # 終了日列インデックス。
+		self.sumicolumn = 0  # 済列インデックス。
+		self.idcolumn = 1  # ID列インデックス。	
+		self.kanjicolumn = 2  # 漢字列インデックス。	
+		self.startdaycolumn = 3 # 開始日列インデックス。
+		self.enddaycolumn = 4  # 終了日列インデックス。
 	def setSheet(self, sheet):  # 逐次変化する値。
 		self.sheet = sheet
 		cellranges = sheet[self.splittedrow:, self.idcolumn].queryContentCells(CellFlags.STRING)  # ID列の文字列が入っているセルに限定して抽出。
@@ -32,7 +33,7 @@ VARS = Ichiran()
 def activeSpreadsheetChanged(activationevent, xscriptcontext):  # シートがアクティブになった時。ドキュメントを開いた時は発火しない。よく誤入力されるセルを修正する。つまりボタンになっているセルの修正。
 	initSheet(activationevent.ActiveSheet, xscriptcontext)
 def initSheet(sheet, xscriptcontext):	
-	datarows = ("全部位終了消去", "", "印刷", "月末印刷", "過去月"),
+	datarows = ("", "済をﾘｾｯﾄ", "全部位終了消去", "印刷", "月末印刷", "過去月"),
 	sheet[0, :len(datarows[0])].setDataArray(datarows)
 	accessiblecontext = xscriptcontext.getDocument().getCurrentController().ComponentWindow.getAccessibleContext()  # コントローラーのアトリビュートからコンポーネントウィンドウを取得。
 	for i in range(accessiblecontext.getAccessibleChildCount()): 
@@ -47,15 +48,28 @@ def initSheet(sheet, xscriptcontext):
 							child2.setValue(0)  # 縦スクロールバーを一番上にする。
 							return  # breakだと二重ループは抜けれない。
 def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを押した時。controllerにコンテナウィンドウはない。
-	if enhancedmouseevent.Buttons==MouseButton.LEFT and enhancedmouseevent.ClickCount==2:  # 左ダブルクリックの時。まずselectionChanged()が発火している。
+	if enhancedmouseevent.Buttons==MouseButton.LEFT:  # 左クリックの時。
 		selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
 		if selection.supportsService("com.sun.star.sheet.SheetCell"):  # ターゲットがセルの時。
 			celladdress = selection.getCellAddress()
-			r = celladdress.Row  # selectionの行インデックスを取得。	
-			if r==VARS.menurow:  # メニュー行の時。:
-				return wClickMenu(enhancedmouseevent, xscriptcontext)
-			if r>=VARS.splittedrow or r !=VARS.blackrow:  # 分割行以下、かつ、区切り行でない、時。
-				return wClickPt(enhancedmouseevent, xscriptcontext)
+			r, c = celladdress.Row, celladdress.Column  # selectionの行と列インデックスを取得。	
+			if enhancedmouseevent.ClickCount==1:  # 左シングルクリックの時。
+				VARS.setSheet(selection.getSpreadsheet())  # VARS.sheetがまだ取得出来ていない時がある。
+				if c==VARS.sumicolumn and VARS.splittedrow<=r<VARS.emptyrow:  # 済列の時。
+					txt = selection.getString()
+					if not txt:  # まだ空セルの時は未として扱う。
+						txt = "未"
+					items = [("待", "skyblue"), ("済", "silver"), ("未", "black")]
+					items.append(items[0])  # 最初の要素を最後の要素に追加する。
+					dic = {items[i][0]: items[i+1] for i in range(len(items)-1)}  # 順繰り辞書の作成。				
+					newtxt = dic[txt][0]							
+					selection.setString(newtxt)
+					VARS.sheet[r, :].setPropertyValue("CharColor", commons.COLORS[dic[txt][1]])		
+			elif enhancedmouseevent.ClickCount==2:  # 左ダブルクリックの時。まずselectionChanged()が発火している。
+				if r==VARS.menurow:  # メニュー行の時。:
+					return wClickMenu(enhancedmouseevent, xscriptcontext)
+				if r>=VARS.splittedrow or r !=VARS.blackrow:  # 分割行以下、かつ、区切り行でない、時。
+					return wClickPt(enhancedmouseevent, xscriptcontext)
 	return True  # セル編集モードにする。シングルクリックは必ずTrueを返さないといけない。		
 def wClickMenu(enhancedmouseevent, xscriptcontext):
 	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 
@@ -64,10 +78,22 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 	controller = doc.getCurrentController()
 	pointsvars = points.VARS
 	sheets = doc.getSheets()	
-	if txt=="全部位終了消去":
+	sheet = VARS.sheet
+	if txt=="済をﾘｾｯﾄ":
+		msg = "済列をリセットします。"
+		componentwindow = controller.ComponentWindow
+		msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, QUERYBOX, MessageBoxButtons.BUTTONS_OK_CANCEL+MessageBoxButtons.DEFAULT_BUTTON_OK, "Designr", msg)
+		if msgbox.execute()==MessageBoxResults.OK:
+			sheet[VARS.splittedrow:VARS.emptyrow, :].setPropertyValue("CharColor", commons.COLORS["black"])  # 文字色を黒色にする。
+			sheet[VARS.splittedrow:VARS.emptyrow, VARS.sumicolumn].setDataArray([("未",)]*(VARS.emptyrow-VARS.splittedrow))  # 済列をリセット。
+			searchdescriptor = sheet.createSearchDescriptor()
+			searchdescriptor.setSearchString("済")
+			cellranges = sheet[VARS.splittedrow:VARS.emptyrow, VARS.checkstartcolumn:VARS.memostartcolumn].findAll(searchdescriptor)  # チェック列の「済」が入っているセル範囲コレクションを取得。
+			cellranges.setPropertyValue("CharColor", commons.COLORS["silver"])	
+	elif txt=="全部位終了消去":
 		msg = "全部位終了しているシートを削除します。\n削除したシートは年月.odsファイルに移動します。"
 		componentwindow = controller.ComponentWindow
-		msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, QUERYBOX, MessageBoxButtons.BUTTONS_OK_CANCEL+MessageBoxButtons.DEFAULT_BUTTON_CANCEL, "myRs", msg)
+		msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, QUERYBOX, MessageBoxButtons.BUTTONS_OK_CANCEL+MessageBoxButtons.DEFAULT_BUTTON_CANCEL, "Designr", msg)
 		if msgbox.execute()==MessageBoxResults.OK:	
 			ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
 			smgr = ctx.getServiceManager()  # サービスマネージャーの取得。				
@@ -91,11 +117,11 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 						sheets.removeByName(sheetname)
 	elif txt=="印刷":  # 黒行以下のシートを印刷。
 		if VARS.blackrow+1<VARS.emptyrow:  # 黒行以下に行がある時。
-			printsheetnames = [i[0] for i in VARS.sheet[VARS.blackrow+1:VARS.emptyrow, VARS.idcolumn].getDataArray()]  # 黒行より下のIDのリストを取得。それが印刷するシート名。
+			printsheetnames = [i[0] for i in sheet[VARS.blackrow+1:VARS.emptyrow, VARS.idcolumn].getDataArray()]  # 黒行より下のIDのリストを取得。それが印刷するシート名。
 			printPointsSheets(xscriptcontext, printsheetnames)
 	elif txt=="月末印刷":  # 一覧にあるすべてのシートについて月末まで埋めて印刷する。
 		if VARS.splittedrow<VARS.emptyrow:
-			printsheetnames = [i[0] for i in VARS.sheet[VARS.splittedrow:VARS.emptyrow, VARS.idcolumn].getDataArray() if i[0].isdigit()]  # IDのリストを取得。それが印刷するシート名。
+			printsheetnames = [i[0] for i in sheet[VARS.splittedrow:VARS.emptyrow, VARS.idcolumn].getDataArray() if i[0].isdigit()]  # IDのリストを取得。それが印刷するシート名。
 			printPointsSheets(xscriptcontext, printsheetnames, True)
 	elif txt=="過去月":
 		dirpath = os.path.dirname(unohelper.fileUrlToSystemPath(doc.getURL()))  # このドキュメントのあるディレクトリのフルパスを取得。
