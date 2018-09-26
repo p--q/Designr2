@@ -86,10 +86,6 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 		if msgbox.execute()==MessageBoxResults.OK:
 			sheet[VARS.splittedrow:VARS.emptyrow, :].setPropertyValue("CharColor", commons.COLORS["black"])  # 文字色を黒色にする。
 			sheet[VARS.splittedrow:VARS.emptyrow, VARS.sumicolumn].setDataArray([("未",)]*(VARS.emptyrow-VARS.splittedrow))  # 済列をリセット。
-			searchdescriptor = sheet.createSearchDescriptor()
-			searchdescriptor.setSearchString("済")
-			cellranges = sheet[VARS.splittedrow:VARS.emptyrow, VARS.checkstartcolumn:VARS.memostartcolumn].findAll(searchdescriptor)  # チェック列の「済」が入っているセル範囲コレクションを取得。
-			cellranges.setPropertyValue("CharColor", commons.COLORS["silver"])	
 	elif txt=="全部位終了消去":
 		msg = "全部位終了しているシートを削除します。\n削除したシートは年月.odsファイルに移動します。"
 		componentwindow = controller.ComponentWindow
