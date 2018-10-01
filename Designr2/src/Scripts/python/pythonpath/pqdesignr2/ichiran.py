@@ -10,6 +10,7 @@ from com.sun.star.beans import PropertyValue  # Struct
 from com.sun.star.i18n.TransliterationModulesNew import FULLWIDTH_HALFWIDTH  # enum
 from com.sun.star.lang import Locale  # Struct
 from com.sun.star.sheet import CellFlags  # 定数
+from com.sun.star.sheet.CellDeleteMode import ROWS as delete_rows  # enum
 from com.sun.star.ui import ActionTriggerSeparatorType  # 定数
 from com.sun.star.ui.ContextMenuInterceptorAction import EXECUTE_MODIFIED  # enum
 class Ichiran():  # シート固有の値。
@@ -97,20 +98,19 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 			startcolumnidx = pointsvars.startcolumn + 7
 			splittedrow = pointsvars.splittedrow
 			daycolumn = pointsvars.daycolumn
-			for i in sheets:  # 全シートをイテレート。非表示シートもイテレートされる。
-				sheetname = i.getName()  # シート名を取得。
-				if sheetname.startswith("00000000"):  # テンプレートの時。
-					sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
-				elif sheetname.isdigit():  # シート名が数字のみの時のみ。		
-					pointsvars.setSheet(i)  # シートによって変化する値を取得。
-					for j in range(startcolumnidx, pointsvars.emptycolumn, 8):  # 部位別合計列インデックスのジェネレーター。			
-						if i[pointsvars.emptyrow-1, j].getPropertyValue("CellBackColor")==-1:  # 最終日の部位別合計列セルに背景色がない時。
+			for i, datarow in enumerate(sheet[VARS.splittedrow:VARS.emptyrow, VARS.idcolumn].getDataArray()[::-1], start=1):  # IDの行をイテレート。行を削除するので逆順にする。sheetsのイテレートではsheetsの操作ができない。
+				if datarow[0].isdigit():  # 先頭の要素を数値だけの時はシート名になる。
+					sheetname = datarow[0]  # シート名を取得。
+					pointssheet = sheets[sheetname]  # IDのシートを取得。
+					pointsvars.setSheet(pointssheet)  # シートによって変化する値を取得。
+					for j in range(startcolumnidx, pointsvars.emptycolumn, 8):  # 部位別合計列インデックスをイテレート。			
+						if pointssheet[pointsvars.emptyrow-1, j].getPropertyValue("CellBackColor")==-1:  # 最終日の部位別合計列セルに背景色がない時。
 							break
 					else:  # for文中でbreakしなかった時は最終日の部位別合計のすべてに背景色があるか、部位が一つもない時。
-						datevalue = i[splittedrow, daycolumn].getValue()
-						y, m = [int(functionaccess.callFunction(j, (datevalue,))) for j in ("YEAR", "MONTH")]  # 最終行の日付セルの年と月を取得。	
-						points.createCopySheet(xscriptcontext, y)(sheetname, m)  # 現在のシートを年月名のファイルにコピーする。
-						sheets.removeByName(sheetname)
+						y, m = [int(functionaccess.callFunction(j, (pointssheet[splittedrow, daycolumn].getValue(),))) for j in ("YEAR", "MONTH")]  # IDシートの日付セルの年と月を取得。	
+						points.createCopySheet(xscriptcontext, y)(sheetname, m)  # IDシートを年月名のファイルにコピーする。
+						sheets.removeByName(sheetname)  # コピーしたシートは削除する。
+						sheet.removeRange(sheet[VARS.emptyrow-i, 0].getRangeAddress(), delete_rows)  # 削除したシートのID行を削除。
 	elif txt=="印刷":  # 黒行以下のシートを印刷。
 		if VARS.blackrow+1<VARS.emptyrow:  # 黒行以下に行がある時。
 			printsheetnames = [i[0] for i in sheet[VARS.blackrow+1:VARS.emptyrow, VARS.idcolumn].getDataArray()]  # 黒行より下のIDのリストを取得。それが印刷するシート名。
@@ -130,14 +130,11 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 			commons.showErrorMessageBox(controller, msg)
 	return False  # セル編集モードにしない。		
 def printPointsSheets(xscriptcontext, printsheetnames, fillToEnd=None):  # printsheetnames: 印刷するシート名のイテラブル。fillToEndがTrueの時は月末まで埋める。
-	
-# 	import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
-	
 	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 
 	sheets = doc.getSheets()
 	pointsvars = points.VARS
 	endpage = 1  # 印刷終了ページ番号。
-	for printsheetname in printsheetnames[::-1]:  # 逆順に取得。
+	for printsheetname in printsheetnames[::-1]:  # 逆順に取得。sheetsをイテレートするとsheetsが操作できない。
 		if printsheetname in sheets:
 			printsheet = sheets[printsheetname]  # 印刷するシートを取得。
 			pointsvars.setSheet(printsheet)  # シートによって変化する値を取得。
@@ -148,7 +145,7 @@ def printPointsSheets(xscriptcontext, printsheetnames, fillToEnd=None):  # print
 			sheets.moveByName(printsheetname, 0)  # 先頭に持ってくる。
 			endpage += 1  # 印刷終了ページ番号を増やす。
 	sheets.moveByName("一覧", 0)  # 一覧シートを一番先頭にする。	
-	VARS.sheet.setPrintAreas((VARS.sheet[0, 0].getRangeAddress(),))  # 印刷範囲を設定。印刷しないページは1ページで収まるようにする。	
+	VARS.sheet.setPrintAreas((VARS.sheet[0, 1].getRangeAddress(),))  # 印刷範囲を設定。印刷しないページは1ページで収まるようにする。	Windowsでは空セルを指定すると印刷ページにカウントされない。
 	controller = doc.getCurrentController()
 	if endpage>1:  # 印刷するページがある時。
 		doc.getStyleFamilies()["PageStyles"]["Default"].setPropertyValues(("HeaderIsOn", "FooterIsOn"), (False, False))  # ヘッダーとフッターを付けない。
@@ -236,20 +233,6 @@ def selectionChanged(eventobject, xscriptcontext):  # 矢印キーでセル移�
 	if selection.supportsService("com.sun.star.sheet.SheetCellRange"):  # 選択範囲がセル範囲の時。
 		VARS.setSheet(selection.getSpreadsheet())		
 		drowBorders(selection)  # 枠線の作成。
-def printSheets(xscriptcontext, sheets):
-	pointsvars = points.VARS	
-	for i in sheets:  # 全シートをイテレート。非表示シートもイテレートされる。
-		sheetname = i.getName()  # シート名を取得。
-		if sheetname.startswith("00000000"):  # テンプレートの時。
-			sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
-		elif sheetname.isdigit():  # シート名が数字のみの時のみ。		
-			pointsvars.setSheet(i)  # シートによって変化する値を取得。
-			i[0, :pointsvars.daycolumn].clearContents(CellFlags.STRING)  # ボタンセルを消去する。印刷しないので。シートをアクティブしたときに再度ボタンセルに文字列を代入する。
-			i.setPrintAreas((i[:pointsvars.emptyrow, :pointsvars.emptycolumn].getRangeAddress(),))  # 印刷範囲を設定。			
-		else:  # シート名が数字以外のシートはすべて先頭にもってくる。
-			sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
-	sheets.moveByName("一覧", 0)  # 一覧シートを一番先頭にする。
-	printPointsSheets(xscriptcontext)		
 def drowBorders(selection):  # ターゲットを交点とする行列全体の外枠線を描く。
 	celladdress = selection[0, 0].getCellAddress()  # 選択範囲の左上端のセルアドレスを取得。
 	r = celladdress.Row  # selectionの行と列のインデックスを取得。	
