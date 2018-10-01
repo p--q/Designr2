@@ -130,6 +130,9 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 			commons.showErrorMessageBox(controller, msg)
 	return False  # セル編集モードにしない。		
 def printPointsSheets(xscriptcontext, printsheetnames, fillToEnd=None):  # printsheetnames: 印刷するシート名のイテラブル。fillToEndがTrueの時は月末まで埋める。
+	
+# 	import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
+	
 	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 
 	sheets = doc.getSheets()
 	pointsvars = points.VARS
