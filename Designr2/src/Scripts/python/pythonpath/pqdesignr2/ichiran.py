@@ -11,6 +11,8 @@ from com.sun.star.i18n.TransliterationModulesNew import FULLWIDTH_HALFWIDTH  # e
 from com.sun.star.lang import Locale  # Struct
 from com.sun.star.sheet import CellFlags  # 定数
 from com.sun.star.sheet.CellDeleteMode import ROWS as delete_rows  # enum
+from com.sun.star.table import BorderLine2  # Struct
+from com.sun.star.table import BorderLineStyle  # 定数
 from com.sun.star.ui import ActionTriggerSeparatorType  # 定数
 from com.sun.star.ui.ContextMenuInterceptorAction import EXECUTE_MODIFIED  # enum
 class Ichiran():  # シート固有の値。
@@ -134,11 +136,13 @@ def printPointsSheets(xscriptcontext, printsheetnames, fillToEnd=None):  # print
 	sheets = doc.getSheets()
 	pointsvars = points.VARS
 	endpage = 1  # 印刷終了ページ番号。
+	noneline = BorderLine2(LineStyle=BorderLineStyle.NONE)
 	for printsheetname in printsheetnames[::-1]:  # 逆順に取得。sheetsをイテレートするとsheetsが操作できない。
-		if printsheetname in sheets:
+		if printsheetname in sheets:  # シート名がシートコレクショにある時。
 			printsheet = sheets[printsheetname]  # 印刷するシートを取得。
 			pointsvars.setSheet(printsheet)  # シートによって変化する値を取得。
 			printsheet[0, :pointsvars.daycolumn].clearContents(CellFlags.STRING)  # ボタンセルを消去する。印刷しないので。シートをアクティブしたときに再度ボタンセルに文字列を代入する。
+			printsheet[:, :].setPropertyValue("TopBorder2", noneline)  # 枠線を消す。1辺をNONEにするだけですべての枠線が消える。	
 			if fillToEnd is not None:
 				points.fillToEndDayRow(doc, pointsvars.emptyrow-1)  # 最終日まで埋める。
 			printsheet.setPrintAreas((printsheet[:pointsvars.emptyrow, :pointsvars.emptycolumn].getRangeAddress(),))  # 印刷範囲を設定。			
@@ -148,7 +152,7 @@ def printPointsSheets(xscriptcontext, printsheetnames, fillToEnd=None):  # print
 	VARS.sheet.setPrintAreas((VARS.sheet[0, 1].getRangeAddress(),))  # 印刷範囲を設定。印刷しないページは1ページで収まるようにする。	Windowsでは空セルを指定すると印刷ページにカウントされない。
 	controller = doc.getCurrentController()
 	if endpage>1:  # 印刷するページがある時。
-		doc.getStyleFamilies()["PageStyles"]["Default"].setPropertyValues(("HeaderIsOn", "FooterIsOn"), (False, False))  # ヘッダーとフッターを付けない。
+		doc.getStyleFamilies()["PageStyles"]["Default"].setPropertyValues(("HeaderIsOn", "FooterIsOn", "IsLandscape", "ScaleToPages"), (False, False, True, 1))  # ヘッダーとフッターを付けない、用紙方向を横に、ページ数に合わせて縮小印刷。
 		printername = ""
 		for i in doc.getPrinter():  # 現在のプリンターのPropertyValueをイテレート。
 			if i.Name=="Name":  # プリンター名の時。
