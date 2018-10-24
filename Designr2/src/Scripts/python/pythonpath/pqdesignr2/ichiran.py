@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # 一覧シートについて。import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
 import os, unohelper, glob
-from indoc import commons, datedialog, points, transientdialog
+from . import commons, datedialog, points, transientdialog
 from com.sun.star.accessibility import AccessibleRole  # 定数
 from com.sun.star.awt import MouseButton, MessageBoxButtons, MessageBoxResults, ScrollBarOrientation # 定数
 from com.sun.star.awt.MessageBoxType import INFOBOX, QUERYBOX  # enum
@@ -10,16 +10,20 @@ from com.sun.star.beans import PropertyValue  # Struct
 from com.sun.star.i18n.TransliterationModulesNew import FULLWIDTH_HALFWIDTH  # enum
 from com.sun.star.lang import Locale  # Struct
 from com.sun.star.sheet import CellFlags  # 定数
+from com.sun.star.sheet.CellDeleteMode import ROWS as delete_rows  # enum
+from com.sun.star.table import BorderLine2  # Struct
+from com.sun.star.table import BorderLineStyle  # 定数
 from com.sun.star.ui import ActionTriggerSeparatorType  # 定数
 from com.sun.star.ui.ContextMenuInterceptorAction import EXECUTE_MODIFIED  # enum
 class Ichiran():  # シート固有の値。
 	def __init__(self):
 		self.menurow = 0
 		self.splittedrow = 2  # 分割行インデックス。
-		self.idcolumn = 0  # ID列インデックス。	
-		self.kanjicolumn = 1  # 漢字列インデックス。	
-		self.startdaycolumn = 2 # 開始日列インデックス。
-		self.enddaycolumn = 3  # 終了日列インデックス。
+		self.sumicolumn = 0  # 済列インデックス。
+		self.idcolumn = 1  # ID列インデックス。	
+		self.kanjicolumn = 2  # 漢字列インデックス。	
+		self.startdaycolumn = 3 # 開始日列インデックス。
+		self.enddaycolumn = 4  # 終了日列インデックス。
 	def setSheet(self, sheet):  # 逐次変化する値。
 		self.sheet = sheet
 		cellranges = sheet[self.splittedrow:, self.idcolumn].queryContentCells(CellFlags.STRING)  # ID列の文字列が入っているセルに限定して抽出。
@@ -32,7 +36,7 @@ VARS = Ichiran()
 def activeSpreadsheetChanged(activationevent, xscriptcontext):  # シートがアクティブになった時。ドキュメントを開いた時は発火しない。よく誤入力されるセルを修正する。つまりボタンになっているセルの修正。
 	initSheet(activationevent.ActiveSheet, xscriptcontext)
 def initSheet(sheet, xscriptcontext):	
-	datarows = ("全部位終了消去", "", "印刷", "月末印刷", "過去月"),
+	datarows = ("", "済をﾘｾｯﾄ", "全部位終了消去", "印刷", "月末印刷", "過去月"),
 	sheet[0, :len(datarows[0])].setDataArray(datarows)
 	accessiblecontext = xscriptcontext.getDocument().getCurrentController().ComponentWindow.getAccessibleContext()  # コントローラーのアトリビュートからコンポーネントウィンドウを取得。
 	for i in range(accessiblecontext.getAccessibleChildCount()): 
@@ -47,15 +51,28 @@ def initSheet(sheet, xscriptcontext):
 							child2.setValue(0)  # 縦スクロールバーを一番上にする。
 							return  # breakだと二重ループは抜けれない。
 def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを押した時。controllerにコンテナウィンドウはない。
-	if enhancedmouseevent.ClickCount==2 and enhancedmouseevent.Buttons==MouseButton.LEFT:  # 左ダブルクリックの時。まずselectionChanged()が発火している。
+	if enhancedmouseevent.Buttons==MouseButton.LEFT:  # 左クリックの時。
 		selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
 		if selection.supportsService("com.sun.star.sheet.SheetCell"):  # ターゲットがセルの時。
 			celladdress = selection.getCellAddress()
-			r = celladdress.Row  # selectionの行インデックスを取得。	
-			if r==VARS.menurow:  # メニュー行の時。:
-				return wClickMenu(enhancedmouseevent, xscriptcontext)
-			if r>=VARS.splittedrow or r !=VARS.blackrow:  # 分割行以下、かつ、区切り行でない、時。
-				return wClickPt(enhancedmouseevent, xscriptcontext)
+			r, c = celladdress.Row, celladdress.Column  # selectionの行と列インデックスを取得。	
+			if enhancedmouseevent.ClickCount==1:  # 左シングルクリックの時。
+				VARS.setSheet(selection.getSpreadsheet())  # VARS.sheetがまだ取得出来ていない時がある。
+				if c==VARS.sumicolumn and VARS.splittedrow<=r<VARS.emptyrow:  # 済列の時。
+					txt = selection.getString()
+					if not txt:  # まだ空セルの時は未として扱う。
+						txt = "未"
+					items = [("待", "skyblue"), ("済", "silver"), ("未", "black")]
+					items.append(items[0])  # 最初の要素を最後の要素に追加する。
+					dic = {items[i][0]: items[i+1] for i in range(len(items)-1)}  # 順繰り辞書の作成。				
+					newtxt = dic[txt][0]							
+					selection.setString(newtxt)
+					VARS.sheet[r, :].setPropertyValue("CharColor", commons.COLORS[dic[txt][1]])		
+			elif enhancedmouseevent.ClickCount==2:  # 左ダブルクリックの時。まずselectionChanged()が発火している。
+				if r==VARS.menurow:  # メニュー行の時。:
+					return wClickMenu(enhancedmouseevent, xscriptcontext)
+				if r>=VARS.splittedrow or r !=VARS.blackrow:  # 分割行以下、かつ、区切り行でない、時。
+					return wClickPt(enhancedmouseevent, xscriptcontext)
 	return True  # セル編集モードにする。シングルクリックは必ずTrueを返さないといけない。		
 def wClickMenu(enhancedmouseevent, xscriptcontext):
 	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 
@@ -64,10 +81,18 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 	controller = doc.getCurrentController()
 	pointsvars = points.VARS
 	sheets = doc.getSheets()	
-	if txt=="全部位終了消去":
+	sheet = VARS.sheet
+	if txt=="済をﾘｾｯﾄ":
+		msg = "済列をリセットします。"
+		componentwindow = controller.ComponentWindow
+		msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, QUERYBOX, MessageBoxButtons.BUTTONS_OK_CANCEL+MessageBoxButtons.DEFAULT_BUTTON_OK, "Designr", msg)
+		if msgbox.execute()==MessageBoxResults.OK:
+			sheet[VARS.splittedrow:VARS.emptyrow, :].setPropertyValue("CharColor", commons.COLORS["black"])  # 文字色を黒色にする。
+			sheet[VARS.splittedrow:VARS.emptyrow, VARS.sumicolumn].setDataArray([("未",)]*(VARS.emptyrow-VARS.splittedrow))  # 済列をリセット。
+	elif txt=="全部位終了消去":
 		msg = "全部位終了しているシートを削除します。\n削除したシートは年月.odsファイルに移動します。"
 		componentwindow = controller.ComponentWindow
-		msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, QUERYBOX, MessageBoxButtons.BUTTONS_OK_CANCEL+MessageBoxButtons.DEFAULT_BUTTON_CANCEL, "myRs", msg)
+		msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, QUERYBOX, MessageBoxButtons.BUTTONS_OK_CANCEL+MessageBoxButtons.DEFAULT_BUTTON_CANCEL, "Designr", msg)
 		if msgbox.execute()==MessageBoxResults.OK:	
 			ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
 			smgr = ctx.getServiceManager()  # サービスマネージャーの取得。				
@@ -75,49 +100,27 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 			startcolumnidx = pointsvars.startcolumn + 7
 			splittedrow = pointsvars.splittedrow
 			daycolumn = pointsvars.daycolumn
-			for i in sheets:  # 全シートをイテレート。非表示シートもイテレートされる。
-				sheetname = i.getName()  # シート名を取得。
-				if sheetname.startswith("00000000"):  # テンプレートの時。
-					sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
-				elif sheetname.isdigit():  # シート名が数字のみの時のみ。		
-					pointsvars.setSheet(i)  # シートによって変化する値を取得。
-					for j in range(startcolumnidx, pointsvars.emptycolumn, 8):  # 部位別合計列インデックスのジェネレーター。			
-						if i[pointsvars.emptyrow-1, j].getPropertyValue("CellBackColor")==-1:  # 最終日の部位別合計列セルに背景色がない時。
+			for i, datarow in enumerate(sheet[VARS.splittedrow:VARS.emptyrow, VARS.idcolumn].getDataArray()[::-1], start=1):  # IDの行をイテレート。行を削除するので逆順にする。sheetsのイテレートではsheetsの操作ができない。
+				if datarow[0].isdigit():  # 先頭の要素を数値だけの時はシート名になる。
+					sheetname = datarow[0]  # シート名を取得。
+					pointssheet = sheets[sheetname]  # IDのシートを取得。
+					pointsvars.setSheet(pointssheet)  # シートによって変化する値を取得。
+					for j in range(startcolumnidx, pointsvars.emptycolumn, 8):  # 部位別合計列インデックスをイテレート。			
+						if pointssheet[pointsvars.emptyrow-1, j].getPropertyValue("CellBackColor")==-1:  # 最終日の部位別合計列セルに背景色がない時。
 							break
 					else:  # for文中でbreakしなかった時は最終日の部位別合計のすべてに背景色があるか、部位が一つもない時。
-						datevalue = i[splittedrow, daycolumn].getValue()
-						y, m = [int(functionaccess.callFunction(j, (datevalue,))) for j in ("YEAR", "MONTH")]  # 最終行の日付セルの年と月を取得。	
-						points.createCopySheet(xscriptcontext, y)(sheetname, m)  # 現在のシートを年月名のファイルにコピーする。
-						sheets.removeByName(sheetname)
-	elif txt=="印刷":  # 一覧と00000000以外のシートをすべて印刷。
-		for i in sheets:  # 全シートをイテレート。非表示シートもイテレートされる。
-			sheetname = i.getName()  # シート名を取得。
-			if sheetname.startswith("00000000"):  # テンプレートの時。
-				sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
-			elif sheetname.isdigit():  # シート名が数字のみの時のみ。		
-				pointsvars.setSheet(i)  # シートによって変化する値を取得。
-				i[0, :pointsvars.daycolumn].clearContents(CellFlags.STRING)  # ボタンセルを消去する。印刷しないので。シートをアクティブしたときに再度ボタンセルに文字列を代入する。
-				i.setPrintAreas((i[:pointsvars.emptyrow, :pointsvars.emptycolumn].getRangeAddress(),))  # 印刷範囲を設定。			
-			else:  # シート名が数字以外のシートはすべて先頭にもってくる。
-				sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
-		sheets.moveByName("一覧", 0)  # 一覧シートを一番先頭にする。
-		printPointsSheets(xscriptcontext)
-	elif txt=="月末印刷":
-		for i in sheets:  # 全シートをイテレート。非表示シートもイテレートされる。
-			sheetname = i.getName()  # シート名を取得。
-			if sheetname.startswith("00000000"):  # テンプレートの時。
-				sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
-				i.setPrintAreas((i[0, 0].getRangeAddress(),))  # 印刷範囲を設定。印刷しないページは1ページで収まるようにする。	
-			elif sheetname.isdigit():  # シート名が数字のみの時のみ。		
-				pointsvars.setSheet(i)  # シートによって変化する値を取得。
-				points.fillToEndDayRow(doc, pointsvars.emptyrow-1)  # 最終日まで埋める。
-				i[0, :pointsvars.daycolumn].clearContents(CellFlags.STRING)  # ボタンセルを消去する。印刷しないので。シートをアクティブしたときに再度ボタンセルに文字列を代入する。
-				i.setPrintAreas((i[:pointsvars.emptyrow, :pointsvars.emptycolumn].getRangeAddress(),))  # 印刷範囲を設定。			
-			else:  # シート名が数字以外のシートはすべて先頭にもってくる。
-				sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
-				i.setPrintAreas((i[0, 0].getRangeAddress(),))  # 印刷範囲を設定。印刷しないページは1ページで収まるようにする。	
-		sheets.moveByName("一覧", 0)  # 一覧シートを一番先頭にする。		
-		printPointsSheets(xscriptcontext)
+						y, m = [int(functionaccess.callFunction(j, (pointssheet[splittedrow, daycolumn].getValue(),))) for j in ("YEAR", "MONTH")]  # IDシートの日付セルの年と月を取得。	
+						points.createCopySheet(xscriptcontext, y)(sheetname, m)  # IDシートを年月名のファイルにコピーする。
+						sheets.removeByName(sheetname)  # コピーしたシートは削除する。
+						sheet.removeRange(sheet[VARS.emptyrow-i, 0].getRangeAddress(), delete_rows)  # 削除したシートのID行を削除。
+	elif txt=="印刷":  # 黒行以下のシートを印刷。
+		if VARS.blackrow+1<VARS.emptyrow:  # 黒行以下に行がある時。
+			printsheetnames = [i[0] for i in sheet[VARS.blackrow+1:VARS.emptyrow, VARS.idcolumn].getDataArray()]  # 黒行より下のIDのリストを取得。それが印刷するシート名。
+			printPointsSheets(xscriptcontext, printsheetnames)
+	elif txt=="月末印刷":  # 一覧にあるすべてのシートについて月末まで埋めて印刷する。
+		if VARS.splittedrow<VARS.emptyrow:
+			printsheetnames = [i[0] for i in sheet[VARS.splittedrow:VARS.emptyrow, VARS.idcolumn].getDataArray() if i[0].isdigit()]  # IDのリストを取得。それが印刷するシート名。
+			printPointsSheets(xscriptcontext, printsheetnames, True)
 	elif txt=="過去月":
 		dirpath = os.path.dirname(unohelper.fileUrlToSystemPath(doc.getURL()))  # このドキュメントのあるディレクトリのフルパスを取得。
 		defaultrows = [os.path.basename(i).split(".")[0] for i in glob.iglob(os.path.join(dirpath, "*", "*年*月.ods"), recursive=True)]  # *年*月のみリストに取得。
@@ -127,25 +130,45 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 		else:
 			msg = "過去のファイルはありません。"
 			commons.showErrorMessageBox(controller, msg)
-	return False  # セル編集モードにしない。			
-def printPointsSheets(xscriptcontext):
+	return False  # セル編集モードにしない。		
+def printPointsSheets(xscriptcontext, printsheetnames, fillToEnd=None):  # printsheetnames: 印刷するシート名のイテラブル。fillToEndがTrueの時は月末まで埋める。
 	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 
-	doc.getStyleFamilies()["PageStyles"]["Default"].setPropertyValues(("HeaderIsOn", "FooterIsOn"), (False, False))  # ヘッダーとフッターを付けない。
+	sheets = doc.getSheets()
+	pointsvars = points.VARS
+	endpage = 1  # 印刷終了ページ番号。
+	noneline = BorderLine2(LineStyle=BorderLineStyle.NONE)
+	for printsheetname in printsheetnames[::-1]:  # 逆順に取得。sheetsをイテレートするとsheetsが操作できない。
+		if printsheetname in sheets:  # シート名がシートコレクショにある時。
+			printsheet = sheets[printsheetname]  # 印刷するシートを取得。
+			pointsvars.setSheet(printsheet)  # シートによって変化する値を取得。
+			printsheet[0, :pointsvars.daycolumn].clearContents(CellFlags.STRING)  # ボタンセルを消去する。印刷しないので。シートをアクティブしたときに再度ボタンセルに文字列を代入する。
+			printsheet[:, :].setPropertyValue("TopBorder2", noneline)  # 枠線を消す。1辺をNONEにするだけですべての枠線が消える。	
+			if fillToEnd is not None:
+				points.fillToEndDayRow(doc, pointsvars.emptyrow-1)  # 最終日まで埋める。
+			printsheet.setPrintAreas((printsheet[:pointsvars.emptyrow, :pointsvars.emptycolumn].getRangeAddress(),))  # 印刷範囲を設定。			
+			sheets.moveByName(printsheetname, 0)  # 先頭に持ってくる。
+			endpage += 1  # 印刷終了ページ番号を増やす。
+	sheets.moveByName("一覧", 0)  # 一覧シートを一番先頭にする。	
+	VARS.sheet.setPrintAreas((VARS.sheet[0, 1].getRangeAddress(),))  # 印刷範囲を設定。印刷しないページは1ページで収まるようにする。	Windowsでは空セルを指定すると印刷ページにカウントされない。
 	controller = doc.getCurrentController()
-	printername = ""
-	for i in doc.getPrinter():  # 現在のプリンターのPropertyValueをイテレート。
-		if i.Name=="Name":  # プリンター名の時。
-			printername = i.Value
-	ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
-	smgr = ctx.getServiceManager()  # サービスマネージャーの取得。		
-	dispatcher = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx)		
-	dispatcher.executeDispatch(controller.getFrame(), ".uno:TableSelectAll", "", 0, ())  # すべての表示シートを選択。非表示シートは選択されない。	
-	propertyvalues = PropertyValue(Name="Pages", Value="3-"),	
-	doc.print(propertyvalues)  # 一覧シート、00000000シート、を除いた3ページ以降のみ印刷。
-	msg = "{}で印刷しました。".format(printername)
-	componentwindow = controller.ComponentWindow
-	msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, INFOBOX, MessageBoxButtons.BUTTONS_OK, "myRs", msg)
-	msgbox.execute()
+	if endpage>1:  # 印刷するページがある時。
+		doc.getStyleFamilies()["PageStyles"]["Default"].setPropertyValues(("HeaderIsOn", "FooterIsOn", "IsLandscape", "ScaleToPages"), (False, False, True, 1))  # ヘッダーとフッターを付けない、用紙方向を横に、ページ数に合わせて縮小印刷。
+		printername = ""
+		for i in doc.getPrinter():  # 現在のプリンターのPropertyValueをイテレート。
+			if i.Name=="Name":  # プリンター名の時。
+				printername = "{}で".format(i.Value)
+		ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
+		smgr = ctx.getServiceManager()  # サービスマネージャーの取得。		
+		dispatcher = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx)		
+		dispatcher.executeDispatch(controller.getFrame(), ".uno:TableSelectAll", "", 0, ())  # すべてのシートを選択。
+		propertyvalues = PropertyValue(Name="Pages", Value="2-{}".format(endpage)),  # 印刷ページの指定。	
+		doc.print(propertyvalues)  # startpage以降のみ印刷。
+		msg = "{}印刷しました。".format(printername)
+		componentwindow = controller.ComponentWindow
+		msgbox = componentwindow.getToolkit().createMessageBox(componentwindow, INFOBOX, MessageBoxButtons.BUTTONS_OK, "Designr", msg)
+		msgbox.execute()
+	else:
+		commons.showErrorMessageBox(controller, "印刷するシートがありません。")	
 def callback_wClickGridCreator(xscriptcontext, txt):
 	def callback_wClickGrid(gridcelldata):  # gridcelldata: グリッドコントロールのダブルクリックしたセルのデータ。	
 		doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 	
@@ -214,20 +237,6 @@ def selectionChanged(eventobject, xscriptcontext):  # 矢印キーでセル移�
 	if selection.supportsService("com.sun.star.sheet.SheetCellRange"):  # 選択範囲がセル範囲の時。
 		VARS.setSheet(selection.getSpreadsheet())		
 		drowBorders(selection)  # 枠線の作成。
-def printSheets(xscriptcontext, sheets):
-	pointsvars = points.VARS	
-	for i in sheets:  # 全シートをイテレート。非表示シートもイテレートされる。
-		sheetname = i.getName()  # シート名を取得。
-		if sheetname.startswith("00000000"):  # テンプレートの時。
-			sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
-		elif sheetname.isdigit():  # シート名が数字のみの時のみ。		
-			pointsvars.setSheet(i)  # シートによって変化する値を取得。
-			i[0, :pointsvars.daycolumn].clearContents(CellFlags.STRING)  # ボタンセルを消去する。印刷しないので。シートをアクティブしたときに再度ボタンセルに文字列を代入する。
-			i.setPrintAreas((i[:pointsvars.emptyrow, :pointsvars.emptycolumn].getRangeAddress(),))  # 印刷範囲を設定。			
-		else:  # シート名が数字以外のシートはすべて先頭にもってくる。
-			sheets.moveByName(sheetname, 0)  # 先頭に持ってくる。
-	sheets.moveByName("一覧", 0)  # 一覧シートを一番先頭にする。
-	printPointsSheets(xscriptcontext)		
 def drowBorders(selection):  # ターゲットを交点とする行列全体の外枠線を描く。
 	celladdress = selection[0, 0].getCellAddress()  # 選択範囲の左上端のセルアドレスを取得。
 	r = celladdress.Row  # selectionの行と列のインデックスを取得。	
@@ -267,16 +276,9 @@ def changesOccurred(changesevent, xscriptcontext):  # Sourceにはドキュメ�
 					elif c==kanjicolumn:
 						sheet[r, c].setString(txt.replace("　", " "))  # 全角スペースを半角スペースに置換。
 def notifyContextMenuExecute(contextmenuexecuteevent, xscriptcontext):  # 右クリックメニュー。	
-	controller = contextmenuexecuteevent.Selection  # コントローラーは逐一取得しないとgetSelection()が反映されない。
-	sheet = controller.getActiveSheet()  # アクティブシートを取得。
-	contextmenu = contextmenuexecuteevent.ActionTriggerContainer  # コンテクストメニューコンテナの取得。
-	contextmenuname = contextmenu.getName().rsplit("/")[-1]  # コンテクストメニューの名前を取得。
-	addMenuentry = commons.menuentryCreator(contextmenu)  # 引数のActionTriggerContainerにインデックス0から項目を挿入する関数を取得。
-	baseurl = commons.getBaseURL(xscriptcontext)  # ScriptingURLのbaseurlを取得。
-	del contextmenu[:]  # contextmenu.clear()は不可。
-	selection = controller.getSelection()  # 現在選択しているセル範囲を取得。
+	contextmenuname, addMenuentry, baseurl, selection = commons.contextmenuHelper(VARS, contextmenuexecuteevent, xscriptcontext)
 	celladdress = selection[0, 0].getCellAddress()  # 選択範囲の左上角のセルのアドレスを取得。
-	r = celladdress.Row  # selectionの行と列のインデックスを取得。		
+	r = celladdress.Row  # selectionの行と列のインデックスを取得。	
 	if r<VARS.splittedrow or r==VARS.blackrow:  # 固定行より上、または黒行の時はコンテクストメニューを表示しない。
 		return EXECUTE_MODIFIED
 	elif contextmenuname=="cell":  # セルのとき。セル範囲も含む。
@@ -285,7 +287,7 @@ def notifyContextMenuExecute(contextmenuexecuteevent, xscriptcontext):  # 右ク
 		addMenuentry("ActionTrigger", {"CommandURL": ".uno:PasteSpecial"})		
 		addMenuentry("ActionTriggerSeparator", {"SeparatorType": ActionTriggerSeparatorType.LINE})  # セパレーターを挿入。
 		addMenuentry("ActionTrigger", {"Text": "クリア", "CommandURL": baseurl.format("entry1")}) 
-	elif contextmenuname=="rowheader" and len(selection[0, :].getColumns())==len(sheet[0, :].getColumns()):  # 行ヘッダーのとき、かつ、選択範囲の列数がシートの列数が一致している時。	
+	elif contextmenuname=="rowheader" and len(selection[0, :].getColumns())==len(VARS.sheet[0, :].getColumns()):  # 行ヘッダーのとき、かつ、選択範囲の列数がシートの列数が一致している時。	
 		if r>=VARS.splittedrow:
 			if r<VARS.blackrow:
 				addMenuentry("ActionTrigger", {"Text": "使用中最上行へ", "CommandURL": baseurl.format("entry15")})  # 黒行上から使用中最上行へ

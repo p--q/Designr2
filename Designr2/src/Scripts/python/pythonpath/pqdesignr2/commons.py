@@ -1,7 +1,7 @@
 #!/opt/libreoffice5.4/program/python
 # -*- coding: utf-8 -*-
 import os, unohelper
-from indoc import ichiran, points, documentevent  # 相対インポートは不可。
+from pqdesignr2 import ichiran, points, documentevent  # Contextmenuの呼び出しは相対インポートではエラーになる。
 from com.sun.star.awt import MessageBoxButtons  # 定数
 from com.sun.star.awt.MessageBoxType import ERRORBOX  # enum
 from com.sun.star.datatransfer import XTransferable
@@ -99,6 +99,20 @@ def toOtherEntry(sheet, rangeaddress, edgerow, dest_row):  # 新規行挿入が�
 	sourcerangeaddress = sourcerange.getRangeAddress()  # コピー元セル範囲アドレスを取得。行挿入後にアドレスを取得しないといけない。
 	sheet.moveRange(sheet[dest_row, 0].getCellAddress(), sourcerangeaddress)  # 行の内容を移動。			
 	sheet.removeRange(sourcerangeaddress, delete_rows)  # 移動したソース行を削除。	
+def contextmenuHelper(sheetvars, contextmenuexecuteevent, xscriptcontext):	
+	controller = contextmenuexecuteevent.Selection  # コントローラーは逐一取得しないとgetSelection()が反映されない。。
+	contextmenu = contextmenuexecuteevent.ActionTriggerContainer  # コンテクストメニューコンテナの取得。
+	contextmenuname = contextmenu.getName().rsplit("/")[-1]  # コンテクストメニューの名前を取得。
+	addMenuentry = menuentryCreator(contextmenu)  # 引数のActionTriggerContainerにインデックス0から項目を挿入する関数を取得。
+	baseurl = getBaseURL(xscriptcontext)  # ScriptingURLのbaseurlを取得。
+	del contextmenu[:]  # contextmenu.clear()は不可。
+	ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
+	smgr = ctx.getServiceManager()  # サービスマネージャーの取得。		
+	dispatcher = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx)		
+	dispatcher.executeDispatch(controller.getFrame(), ".uno:TableDeselectAll", "", 0, ())  # すべてのシートの選択を解除。
+	sheetvars.setSheet(controller.getActiveSheet())  # 変数を取得し直す。
+	selection = controller.getSelection()  # 現在選択しているセル範囲を取得。
+	return contextmenuname, addMenuentry, baseurl, selection
 # 	
 # 	
 # 	
