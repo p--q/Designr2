@@ -41,7 +41,7 @@ def getModule(sheetname):  # シート名に応じてモジュールを振り分
 		pass
 	elif sheetname=="一覧":
 		return ichiran
-	elif sheetname.isdigit():  # シート名が数字のみの時IDシート。
+	elif sheetname.isdigit():  # シート名が数字のみの時点数シート。
 		return points
 	return None  # モジュールが見つからなかった時はNoneを返す。
 class TextTransferable(unohelper.Base, XTransferable):

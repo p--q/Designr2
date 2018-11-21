@@ -12,6 +12,7 @@ from com.sun.star.sheet.CellDeleteMode import COLUMNS as delete_columns  # enum
 from com.sun.star.table.CellHoriJustify import CENTER  # enum
 from com.sun.star.ui import ActionTriggerSeparatorType  # 定数
 from com.sun.star.ui.ContextMenuInterceptorAction import EXECUTE_MODIFIED  # enum
+from com.sun.star.util import XModifyListener
 class IDsheet():  # シート固有の値。
 	def __init__(self):
 		self.splittedrow = 2  # 分割行インデックス。
@@ -239,6 +240,32 @@ def createCopySheet(xscriptcontext, year):
 			msg = "シート{}が存在しません。".format(sheetname)	
 			commons.showErrorMessageBox(controller, msg)	
 	return copySheet
+class PointsModifyListener(unohelper.Base, XModifyListener):  # 固定行以下が変更された時に発火する。
+	def __init__(self, xscriptcontext):
+		self.formatkey = commons.formatkeyCreator(xscriptcontext.getDocument())("#,##0;[BLUE]-#,##0")
+	def modified(self, eventobject):  # 固定行以下固定列右のセルが変化すると発火するメソッド。サブジェクトのどこが変化したかはわからない。eventobject.Sourceは対象全シートのセル範囲コレクション。
+		if VARS.sheet.getName().startswith("一覧"):
+			VARS.setSheet(VARS.sheet)  # 最終行と黒行を取得し直す。
+			
+			
+			
+# 			datarange = VARS.sheet[VARS.splittedrow:, VARS.sliptotalcolumn]
+# 			datarange.clearContents(CellFlags.VALUE)
+# 			datarange.setPropertyValue("CellBackColor", -1)
+# 			datarows = VARS.sheet[VARS.splittedrow:VARS.emptyrow, VARS.splittedcolumn:VARS.emptycolumn].getDataArray()  # 伝票金額の全データ行を取得。
+# 			VARS.sheet[VARS.splittedrow-1, VARS.splittedcolumn:VARS.emptycolumn].setDataArray(([sum(filter(None, i)) for i in zip(*datarows)],))  # 列ごとの合計を再計算。空セルの空文字を除いて合計する。
+# 			datarange = VARS.sheet[VARS.splittedrow:VARS.emptyrow, VARS.sliptotalcolumn]  # 伝票内計列のセル範囲を取得。
+# 			datarange.setDataArray((sum(filter(lambda x: isinstance(x, float), i)),) for i in datarows)  # 伝票内計列を再計算。
+# 			datarange.setPropertyValue("NumberFormat", self.formatkey)  # 伝票内計列の書式を設定。
+# 			searchdescriptor = VARS.sheet.createSearchDescriptor()
+# 			searchdescriptor.setPropertyValue("SearchRegularExpression", True)  # 正規表現を有効にする。
+# 			searchdescriptor.setSearchString("[^0]")  # 0以外のセルを取得。戻り値はない。	
+# 			cellranges = datarange.queryContentCells(CellFlags.VALUE).findAll(searchdescriptor)  # 値のあるセルから0以外が入っているセル範囲コレクションを取得。見つからなかった時はNoneが返る。
+# 			if cellranges:
+# 				cellranges.setPropertyValue("CellBackColor", commons.COLORS["violet"])  # 不均衡セルをハイライト。	
+# 			VARS.sheet[VARS.splittedrow:VARS.emptyrow, VARS.splittedcolumn:VARS.emptycolumn].setPropertyValue("NumberFormat", self.formatkey)  # 伝票金額セルの書式を設定。	
+	def disposing(self, eventobject):
+		eventobject.Source.removeModifyListener(self)
 def callback_wClickPointsCreator(xscriptcontext):
 	def callback_wClickPoints(gridcelldata):
 		selection = xscriptcontext.getDocument().getCurrentSelection()  # シート上で選択しているオブジェクトを取得。

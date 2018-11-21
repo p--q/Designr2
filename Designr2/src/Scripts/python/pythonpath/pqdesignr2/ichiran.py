@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # 一覧シートについて。import pydevd; pydevd.settrace(stdoutToServer=True, stderrToServer=True)
 import os, unohelper, glob
-from . import commons, datedialog, points, transientdialog
+from . import commons, datedialog, points, transientdialog, menudialog
 from com.sun.star.accessibility import AccessibleRole  # 定数
 from com.sun.star.awt import MouseButton, MessageBoxButtons, MessageBoxResults, ScrollBarOrientation # 定数
 from com.sun.star.awt.MessageBoxType import INFOBOX, QUERYBOX  # enum
@@ -15,6 +15,7 @@ from com.sun.star.table import BorderLine2  # Struct
 from com.sun.star.table import BorderLineStyle  # 定数
 from com.sun.star.ui import ActionTriggerSeparatorType  # 定数
 from com.sun.star.ui.ContextMenuInterceptorAction import EXECUTE_MODIFIED  # enum
+from com.sun.star.util import XModifyListener
 class Ichiran():  # シート固有の値。
 	def __init__(self):
 		self.menurow = 0
@@ -36,7 +37,7 @@ VARS = Ichiran()
 def activeSpreadsheetChanged(activationevent, xscriptcontext):  # シートがアクティブになった時。ドキュメントを開いた時は発火しない。よく誤入力されるセルを修正する。つまりボタンになっているセルの修正。
 	initSheet(activationevent.ActiveSheet, xscriptcontext)
 def initSheet(sheet, xscriptcontext):	
-	datarows = ("", "済をﾘｾｯﾄ", "全部位終了消去", "印刷", "月末印刷", "過去月"),
+	datarows = ("", "メニュー"),
 	sheet[0, :len(datarows[0])].setDataArray(datarows)
 	accessiblecontext = xscriptcontext.getDocument().getCurrentController().ComponentWindow.getAccessibleContext()  # コントローラーのアトリビュートからコンポーネントウィンドウを取得。
 	for i in range(accessiblecontext.getAccessibleChildCount()): 
@@ -69,11 +70,51 @@ def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを�
 					selection.setString(newtxt)
 					VARS.sheet[r, :].setPropertyValue("CharColor", commons.COLORS[dic[txt][1]])		
 			elif enhancedmouseevent.ClickCount==2:  # 左ダブルクリックの時。まずselectionChanged()が発火している。
-				if r==VARS.menurow:  # メニュー行の時。:
-					return wClickMenu(enhancedmouseevent, xscriptcontext)
+				if r<VARS.menurow:  # 固定行より上の時。
+					txt = selection.getString()	
+					if txt=="メニュー":
+						defaultrows = "黒行より下の患者印刷", "月末まで埋めて印刷",  "全部位終了患者を消去", "------", "過去月"
+						menudialog.createDialog(xscriptcontext, txt, defaultrows, enhancedmouseevent=enhancedmouseevent, callback=callback_menuCreator(xscriptcontext))
+					return False  # セル編集モードにしない。					
 				if r>=VARS.splittedrow or r !=VARS.blackrow:  # 分割行以下、かつ、区切り行でない、時。
 					return wClickPt(enhancedmouseevent, xscriptcontext)
-	return True  # セル編集モードにする。シングルクリックは必ずTrueを返さないといけない。		
+	return True  # セル編集モードにする。シングルクリックは必ずTrueを返さないといけない。
+def callback_menuCreator(xscriptcontext):  # 内側のスコープでクロージャの変数を再定義するとクロージャの変数を参照できなくなる。	
+	componentwindow = xscriptcontext.getDocument().getCurrentController().ComponentWindow
+	querybox = lambda x: componentwindow.getToolkit().createMessageBox(componentwindow, QUERYBOX, MessageBoxButtons.BUTTONS_YES_NO+MessageBoxButtons.DEFAULT_BUTTON_YES, "WEntryBook", x)
+	def callback_menu(gridcelltxt):			
+		if gridcelltxt=="黒行より下の患者印刷":	
+			printername = ""
+			for i in doc.getPrinter():  # 現在のプリンターのPropertyValueをイテレート。
+				if i.Name=="Name":  # プリンター名の時。
+					printername = "{}で".format(i.Value)
+			
+			
+			msgbox = querybox("黒行より下の患者の点数シートを印刷します。")
+			if msgbox.execute()!=MessageBoxResults.YES:  # Yes以外の時はここで終わる。		
+				return	
+			if VARS.blackrow+1<VARS.emptyrow:  # 黒行以下に行がある時。
+				printsheetnames = [i[0] for i in VARS.sheet[VARS.blackrow+1:VARS.emptyrow, VARS.idcolumn].getDataArray()]  # 黒行より下のIDのリストを取得。それが印刷するシート名。
+				printPointsSheets(xscriptcontext, printsheetnames)
+		elif gridcelltxt=="月末まで埋めて印刷":
+			msgbox = querybox("全点数シートの点数を月末まで埋めて印刷します。")
+			if msgbox.execute()!=MessageBoxResults.YES:  # Yes以外の時はここで終わる。		
+				return	
+			createMotoCho(xscriptcontext, gridcelltxt, "総勘定元帳", lambda x: compress(*(x[VARS.kamokurow][VARS.splittedcolumn:],)*2))
+		elif gridcelltxt=="全部位終了患者を消去":
+			msgbox = querybox("全部位が終了しているシートをアーカイブして一覧から消去します。")
+			if msgbox.execute()!=MessageBoxResults.YES:  # Yes以外の時はここで終わる。		
+				return	
+			createHojoMotoCho(xscriptcontext, gridcelltxt, "全補助元帳", lambda x: range(len(x[0])))	
+		elif gridcelltxt=="過去月のファイル一覧を表示":
+
+			createShisanhyo(xscriptcontext, gridcelltxt)
+
+	return callback_menu
+
+
+
+
 def wClickMenu(enhancedmouseevent, xscriptcontext):
 	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 
 	selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
@@ -249,6 +290,35 @@ def drowBorders(selection):  # ターゲットを交点とする行列全体の�
 	sheet[rangeaddress.StartRow:rangeaddress.EndRow+1, :].setPropertyValue("TableBorder2", topbottomtableborder)  # 行の上下に枠線を引く
 	sheet[:, rangeaddress.StartColumn:rangeaddress.EndColumn+1].setPropertyValue("TableBorder2", leftrighttableborder)  # 列の左右に枠線を引く。
 	selection.setPropertyValue("TableBorder2", tableborder2)  # 選択範囲の消えた枠線を引き直す。		
+class DataModifyListener(unohelper.Base, XModifyListener):  # 固定行以下が変更された時に発火する。
+	def __init__(self, xscriptcontext):
+		self.formatkey = commons.formatkeyCreator(xscriptcontext.getDocument())("#,##0;[BLUE]-#,##0")
+	def modified(self, eventobject):  # 固定行以下固定列右のセルが変化すると発火するメソッド。サブジェクトのどこが変化したかはわからない。eventobject.Sourceは対象全シートのセル範囲コレクション。
+		if VARS.sheet.getName().startswith("一覧"):
+			VARS.setSheet(VARS.sheet)  # 最終行と黒行を取得し直す。
+			
+			
+			
+# 			datarange = VARS.sheet[VARS.splittedrow:, VARS.sliptotalcolumn]
+# 			datarange.clearContents(CellFlags.VALUE)
+# 			datarange.setPropertyValue("CellBackColor", -1)
+# 			datarows = VARS.sheet[VARS.splittedrow:VARS.emptyrow, VARS.splittedcolumn:VARS.emptycolumn].getDataArray()  # 伝票金額の全データ行を取得。
+# 			VARS.sheet[VARS.splittedrow-1, VARS.splittedcolumn:VARS.emptycolumn].setDataArray(([sum(filter(None, i)) for i in zip(*datarows)],))  # 列ごとの合計を再計算。空セルの空文字を除いて合計する。
+# 			datarange = VARS.sheet[VARS.splittedrow:VARS.emptyrow, VARS.sliptotalcolumn]  # 伝票内計列のセル範囲を取得。
+# 			datarange.setDataArray((sum(filter(lambda x: isinstance(x, float), i)),) for i in datarows)  # 伝票内計列を再計算。
+# 			datarange.setPropertyValue("NumberFormat", self.formatkey)  # 伝票内計列の書式を設定。
+# 			searchdescriptor = VARS.sheet.createSearchDescriptor()
+# 			searchdescriptor.setPropertyValue("SearchRegularExpression", True)  # 正規表現を有効にする。
+# 			searchdescriptor.setSearchString("[^0]")  # 0以外のセルを取得。戻り値はない。	
+# 			cellranges = datarange.queryContentCells(CellFlags.VALUE).findAll(searchdescriptor)  # 値のあるセルから0以外が入っているセル範囲コレクションを取得。見つからなかった時はNoneが返る。
+# 			if cellranges:
+# 				cellranges.setPropertyValue("CellBackColor", commons.COLORS["violet"])  # 不均衡セルをハイライト。	
+# 			VARS.sheet[VARS.splittedrow:VARS.emptyrow, VARS.splittedcolumn:VARS.emptycolumn].setPropertyValue("NumberFormat", self.formatkey)  # 伝票金額セルの書式を設定。	
+	def disposing(self, eventobject):
+		eventobject.Source.removeModifyListener(self)
+
+
+
 def changesOccurred(changesevent, xscriptcontext):  # Sourceにはドキュメントが入る。マクロで変更した時は発火しない模様。	
 	selection = None
 	for change in changesevent.Changes:
