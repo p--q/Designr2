@@ -31,6 +31,7 @@ class Ichiran():  # シート固有の値。
 		backcolors = commons.COLORS["black"], # ジェネレーターに使うので順番が重要。
 		gene = (i.getCellAddress().Row for i in cellranges.getCells() if i.getPropertyValue("CellBackColor") in backcolors)
 		self.blackrow = next(gene)  # 黒行インデックス。
+		sheet[self.blackrow, self.idcolumn].setString("黒行")
 		cellranges = sheet[:, self.idcolumn].queryContentCells(CellFlags.STRING+CellFlags.VALUE)  # ID列の文字列が入っているセルに限定して抽出。数値の時もありうる。
 		self.emptyrow = cellranges.getRangeAddresses()[-1].EndRow + 1  # ID列の最終行インデックス+1を取得。
 VARS = Ichiran()
@@ -73,7 +74,7 @@ def mousePressed(enhancedmouseevent, xscriptcontext):  # マウスボタンを�
 				if r<VARS.menurow:  # 固定行より上の時。
 					txt = selection.getString()	
 					if txt=="メニュー":
-						defaultrows = "黒行より下の患者印刷", "月末まで埋めて印刷",  "全部位終了患者を消去", "------", "過去月"
+						defaultrows = "継続患者のみ印刷", "全患者印刷", "月末まで埋めて全患者印刷",  "全部位終了患者を一覧から消去", "------", "過去月ファイル一覧を表示"
 						menudialog.createDialog(xscriptcontext, txt, defaultrows, enhancedmouseevent=enhancedmouseevent, callback=callback_menuCreator(xscriptcontext))
 					return False  # セル編集モードにしない。					
 				if r>=VARS.splittedrow or r !=VARS.blackrow:  # 分割行以下、かつ、区切り行でない、時。
@@ -83,38 +84,41 @@ def callback_menuCreator(xscriptcontext):  # 内側のスコープでクロー�
 	componentwindow = xscriptcontext.getDocument().getCurrentController().ComponentWindow
 	querybox = lambda x: componentwindow.getToolkit().createMessageBox(componentwindow, QUERYBOX, MessageBoxButtons.BUTTONS_YES_NO+MessageBoxButtons.DEFAULT_BUTTON_YES, "WEntryBook", x)
 	def callback_menu(gridcelltxt):			
-		if gridcelltxt=="黒行より下の患者印刷":	
-			printername = ""
-			for i in doc.getPrinter():  # 現在のプリンターのPropertyValueをイテレート。
-				if i.Name=="Name":  # プリンター名の時。
-					printername = "{}で".format(i.Value)
-			
-			
-			msgbox = querybox("黒行より下の患者の点数シートを印刷します。")
+		if gridcelltxt=="継続患者のみ印刷":	
+			printername = getPrinterName(xscriptcontext.getDocument())			
+			msgbox = querybox("{}{}します。".format(printername, gridcelltxt))
 			if msgbox.execute()!=MessageBoxResults.YES:  # Yes以外の時はここで終わる。		
 				return	
-			if VARS.blackrow+1<VARS.emptyrow:  # 黒行以下に行がある時。
-				printsheetnames = [i[0] for i in VARS.sheet[VARS.blackrow+1:VARS.emptyrow, VARS.idcolumn].getDataArray()]  # 黒行より下のIDのリストを取得。それが印刷するシート名。
-				printPointsSheets(xscriptcontext, printsheetnames)
-		elif gridcelltxt=="月末まで埋めて印刷":
-			msgbox = querybox("全点数シートの点数を月末まで埋めて印刷します。")
+			printsheetnames = [i[0] for i in VARS.sheet[VARS.splittedrow:VARS.emptyrow, VARS.idcolumn:VARS.enddaycolumn+1].getDataArray() if i[0]!="黒行" and not i[-1]]  # 黒行でなく、かつ、終了日セルが空セル、のIDのリスト。
+			if printsheetnames:  # 印刷するシートがあるとき。
+				printPointsSheets(xscriptcontext, printername, printsheetnames)
+		elif gridcelltxt=="全患者印刷":	
+			msgbox = querybox("{}します。".format(gridcelltxt))
 			if msgbox.execute()!=MessageBoxResults.YES:  # Yes以外の時はここで終わる。		
 				return	
-			createMotoCho(xscriptcontext, gridcelltxt, "総勘定元帳", lambda x: compress(*(x[VARS.kamokurow][VARS.splittedcolumn:],)*2))
-		elif gridcelltxt=="全部位終了患者を消去":
-			msgbox = querybox("全部位が終了しているシートをアーカイブして一覧から消去します。")
-			if msgbox.execute()!=MessageBoxResults.YES:  # Yes以外の時はここで終わる。		
-				return	
-			createHojoMotoCho(xscriptcontext, gridcelltxt, "全補助元帳", lambda x: range(len(x[0])))	
-		elif gridcelltxt=="過去月のファイル一覧を表示":
 
-			createShisanhyo(xscriptcontext, gridcelltxt)
+		elif gridcelltxt=="月末まで埋めて全患者印刷":
+			msgbox = querybox("{}します。".format(gridcelltxt))
+			if msgbox.execute()!=MessageBoxResults.YES:  # Yes以外の時はここで終わる。		
+				return	
+# 			createMotoCho(xscriptcontext, gridcelltxt, "総勘定元帳", lambda x: compress(*(x[VARS.kamokurow][VARS.splittedcolumn:],)*2))
+		elif gridcelltxt=="全部位終了患者を一覧から消去":
+			msgbox = querybox("{}します。".format(gridcelltxt))
+			if msgbox.execute()!=MessageBoxResults.YES:  # Yes以外の時はここで終わる。		
+				return	
+# 			createHojoMotoCho(xscriptcontext, gridcelltxt, "全補助元帳", lambda x: range(len(x[0])))	
+		elif gridcelltxt=="過去月ファイル一覧を表示":
+			msgbox = querybox("{}します。".format(gridcelltxt))
+			if msgbox.execute()!=MessageBoxResults.YES:  # Yes以外の時はここで終わる。		
+				return	
+# 			createShisanhyo(xscriptcontext, gridcelltxt)
 
 	return callback_menu
-
-
-
-
+def getPrinterName(doc):  # プリンター名を取得。
+	for i in doc.getPrinter():  # 現在のプリンターのPropertyValueをイテレート。
+		if i.Name=="Name":  # プリンター名の時。
+			return "プリンター「{}」で\n".format(i.Value)
+	return ""		
 def wClickMenu(enhancedmouseevent, xscriptcontext):
 	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 
 	selection = enhancedmouseevent.Target  # ターゲットのセルを取得。
@@ -172,32 +176,28 @@ def wClickMenu(enhancedmouseevent, xscriptcontext):
 			msg = "過去のファイルはありません。"
 			commons.showErrorMessageBox(controller, msg)
 	return False  # セル編集モードにしない。		
-def printPointsSheets(xscriptcontext, printsheetnames, fillToEnd=None):  # printsheetnames: 印刷するシート名のイテラブル。fillToEndがTrueの時は月末まで埋める。
+def printPointsSheets(xscriptcontext, printername, printsheetnames, fillToEnd=None):  # printsheetnames: 印刷するシート名のイテラブル。fillToEndがTrueの時は月末まで埋める。
 	doc = xscriptcontext.getDocument()  # ドキュメントのモデルを取得。 
 	sheets = doc.getSheets()
 	pointsvars = points.VARS
 	endpage = 1  # 印刷終了ページ番号。
 	noneline = BorderLine2(LineStyle=BorderLineStyle.NONE)
-	for printsheetname in printsheetnames[::-1]:  # 逆順に取得。sheetsをイテレートするとsheetsが操作できない。
-		if printsheetname in sheets:  # シート名がシートコレクショにある時。
-			printsheet = sheets[printsheetname]  # 印刷するシートを取得。
+	for i in printsheetnames[::-1]:  # 印刷するシート名を逆順にイテレート。sheetsをイテレートするとsheetsが操作できない。
+		if i in sheets:  # シート名がシートコレクショにある時。
+			printsheet = sheets[i]  # 印刷するシートを取得。
 			pointsvars.setSheet(printsheet)  # シートによって変化する値を取得。
 			printsheet[0, :pointsvars.daycolumn].clearContents(CellFlags.STRING)  # ボタンセルを消去する。印刷しないので。シートをアクティブしたときに再度ボタンセルに文字列を代入する。
 			printsheet[:, :].setPropertyValue("TopBorder2", noneline)  # 枠線を消す。1辺をNONEにするだけですべての枠線が消える。	
 			if fillToEnd is not None:
 				points.fillToEndDayRow(doc, pointsvars.emptyrow-1)  # 最終日まで埋める。
 			printsheet.setPrintAreas((printsheet[:pointsvars.emptyrow, :pointsvars.emptycolumn].getRangeAddress(),))  # 印刷範囲を設定。			
-			sheets.moveByName(printsheetname, 0)  # 先頭に持ってくる。
+			sheets.moveByName(i, 0)  # 先頭に持ってくる。
 			endpage += 1  # 印刷終了ページ番号を増やす。
 	sheets.moveByName("一覧", 0)  # 一覧シートを一番先頭にする。	
-	VARS.sheet.setPrintAreas((VARS.sheet[0, 1].getRangeAddress(),))  # 印刷範囲を設定。印刷しないページは1ページで収まるようにする。	Windowsでは空セルを指定すると印刷ページにカウントされない。
+	VARS.sheet.setPrintAreas((VARS.sheet[0, 1].getRangeAddress(),))  # 一覧シートの印刷範囲を設定。印刷しないページは1ページで収まるようにする。Windowsでは空セルを指定すると印刷ページにカウントされない。
 	controller = doc.getCurrentController()
 	if endpage>1:  # 印刷するページがある時。
 		doc.getStyleFamilies()["PageStyles"]["Default"].setPropertyValues(("HeaderIsOn", "FooterIsOn", "IsLandscape", "ScaleToPages"), (False, False, True, 1))  # ヘッダーとフッターを付けない、用紙方向を横に、ページ数に合わせて縮小印刷。
-		printername = ""
-		for i in doc.getPrinter():  # 現在のプリンターのPropertyValueをイテレート。
-			if i.Name=="Name":  # プリンター名の時。
-				printername = "{}で".format(i.Value)
 		ctx = xscriptcontext.getComponentContext()  # コンポーネントコンテクストの取得。
 		smgr = ctx.getServiceManager()  # サービスマネージャーの取得。		
 		dispatcher = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx)		
@@ -352,6 +352,8 @@ def notifyContextMenuExecute(contextmenuexecuteevent, xscriptcontext):  # 右ク
 	if r<VARS.splittedrow or r==VARS.blackrow:  # 固定行より上、または黒行の時はコンテクストメニューを表示しない。
 		return EXECUTE_MODIFIED
 	elif contextmenuname=="cell":  # セルのとき。セル範囲も含む。
+		addMenuentry("ActionTrigger", {"Text": "選択患者のみ印刷", "CommandURL": baseurl.format("entry2")}) 
+		addMenuentry("ActionTriggerSeparator", {"SeparatorType": ActionTriggerSeparatorType.LINE})
 		commons.cutcopypasteMenuEntries(addMenuentry)
 		addMenuentry("ActionTriggerSeparator", {"SeparatorType": ActionTriggerSeparatorType.LINE})
 		addMenuentry("ActionTrigger", {"CommandURL": ".uno:PasteSpecial"})		
@@ -359,15 +361,16 @@ def notifyContextMenuExecute(contextmenuexecuteevent, xscriptcontext):  # 右ク
 		addMenuentry("ActionTrigger", {"Text": "クリア", "CommandURL": baseurl.format("entry1")}) 
 	elif contextmenuname=="rowheader" and len(selection[0, :].getColumns())==len(VARS.sheet[0, :].getColumns()):  # 行ヘッダーのとき、かつ、選択範囲の列数がシートの列数が一致している時。	
 		if r>=VARS.splittedrow:
-			if r<VARS.blackrow:
-				addMenuentry("ActionTrigger", {"Text": "使用中最上行へ", "CommandURL": baseurl.format("entry15")})  # 黒行上から使用中最上行へ
-				addMenuentry("ActionTrigger", {"Text": "使用中最下行へ", "CommandURL": baseurl.format("entry16")})  # 黒行上から使用中最下行へ
-			elif r>VARS.blackrow:  # 黒行以外の時。
-				addMenuentry("ActionTrigger", {"Text": "黒行上へ", "CommandURL": baseurl.format("entry17")})  
+			if r<VARS.blackrow:  # 黒行より上の時。
+				addMenuentry("ActionTrigger", {"Text": "黒行上へ", "CommandURL": baseurl.format("entry15")})  # 黒行上へ移動。
 				addMenuentry("ActionTriggerSeparator", {"SeparatorType": ActionTriggerSeparatorType.LINE})
-				addMenuentry("ActionTrigger", {"Text": "使用中最上行へ", "CommandURL": baseurl.format("entry18")})  # 使用中から使用中最上行へ  
-				addMenuentry("ActionTrigger", {"Text": "使用中最下行へ", "CommandURL": baseurl.format("entry19")})  # 使用中から使用中最下行へ		
-			if r!=VARS.blackrow:
+				addMenuentry("ActionTrigger", {"Text": "最下行へ", "CommandURL": baseurl.format("entry16")})  # 最下行へ移動。
+			elif r>VARS.blackrow:  # 黒行以外の時。
+				addMenuentry("ActionTrigger", {"Text": "黒行上へ", "CommandURL": baseurl.format("entry17")})  # 黒行上へ移動。  
+				addMenuentry("ActionTriggerSeparator", {"SeparatorType": ActionTriggerSeparatorType.LINE})
+				addMenuentry("ActionTrigger", {"Text": "黒行下へ", "CommandURL": baseurl.format("entry18")})  # 黒行下へ移動。  
+				addMenuentry("ActionTrigger", {"Text": "最下行へ", "CommandURL": baseurl.format("entry19")})  # 最下行へ。		
+			if r!=VARS.blackrow:  # 黒行でないときのみ。
 				addMenuentry("ActionTriggerSeparator", {"SeparatorType": ActionTriggerSeparatorType.LINE})
 				commons.cutcopypasteMenuEntries(addMenuentry)
 				addMenuentry("ActionTriggerSeparator", {"SeparatorType": ActionTriggerSeparatorType.LINE})
@@ -382,6 +385,10 @@ def contextMenuEntries(entrynum, xscriptcontext):  # コンテクストメニュ
 	selection = controller.getSelection()  # 選択範囲を取得。
 	if entrynum==1:  # クリア。書式設定とオブジェクト以外を消去。
 		selection.clearContents(511)  # 範囲をすべてクリアする。
+	elif entrynum==2:  # 選択患者のみ印刷
+		
+		pass
+		
 	elif 14<entrynum<20:
 		sheet = controller.getActiveSheet()  # アクティブシートを取得。
 		rangeaddress = selection.getRangeAddress()  # 選択範囲のアドレスを取得。

@@ -14,8 +14,9 @@ def documentOnLoad(xscriptcontext):  # ドキュメントを開いた時。リ�
 	splittedcolumn = pointsvars.splittedcolumn	
 	sheets = doc.getSheets()
 	addModifyListener(doc, (i[splittedrow:, splittedcolumn:].getRangeAddress() for i in sheets if i.getName().isdigit()), points.PointsModifyListener(xscriptcontext))  # 点数シートの点数の変更を検知するリスナー。	
-	sheet = sheets["一覧"]				
-	addModifyListener(doc, [sheet[ichiran.VARS.splittedrow:, :].getRangeAddress()], ichiran.DataModifyListener(xscriptcontext))  # 一覧シートの固定行以下の変更を検知するリスナー。
+	sheet = sheets["一覧"]			
+	ichiranvars = ichiran.VARS	
+	addModifyListener(doc, [sheet[ichiranvars.splittedrow:, ichiranvars.idcolumn:].getRangeAddress()], ichiran.DataModifyListener(xscriptcontext))  # 一覧シートの固定行以下,かつ、ID列から右列、の変更を検知するリスナー。
 	doc.getCurrentController().setActiveSheet(sheet)  # 一覧シートをアクティブにする。	
 	ichiran.initSheet(sheet, xscriptcontext)
 def addModifyListener(doc, rangeaddresses, modifylistener):	
