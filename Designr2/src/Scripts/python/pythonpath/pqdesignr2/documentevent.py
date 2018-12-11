@@ -11,7 +11,7 @@ def documentOnLoad(xscriptcontext):  # ドキュメントを開いた時。リ�
 			namedranges.removeByName(i)  # 参照範囲がエラーの名前を削除する。	
 	pointsvars = points.VARS  # 点数シートの固有値。
 	splittedrow = pointsvars.splittedrow
-	splittedcolumn = pointsvars.splittedcolumn	
+	splittedcolumn = pointsvars.startcolumn
 	sheets = doc.getSheets()
 	addModifyListener(doc, (i[splittedrow:, splittedcolumn:].getRangeAddress() for i in sheets if i.getName().isdigit()), points.PointsModifyListener(xscriptcontext))  # 点数シートの点数の変更を検知するリスナー。	
 	sheet = sheets["一覧"]			
