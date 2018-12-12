@@ -278,6 +278,8 @@ class DataModifyListener(unohelper.Base, XModifyListener):  # 固定行以下,�
 		sheet = VARS.sheet
 		eventobject.Source.removeModifyListener(self)  # 値を変更するセル範囲のModifyListnerを外しておく。
 		VARS.setSheet(sheet)  # 最終行と黒行を取得し直す。
+		
+		
 		sheet[VARS.splittedrow:VARS.emptyrow, VARS.idcolumn:VARS.enddaycolumn+1].set
 			
 			# ID列、開始日列、終了日列の書式設定。
