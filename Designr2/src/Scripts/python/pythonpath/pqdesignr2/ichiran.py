@@ -13,6 +13,7 @@ from com.sun.star.sheet import CellFlags  # 定数
 from com.sun.star.sheet.CellDeleteMode import ROWS as delete_rows  # enum
 from com.sun.star.table import BorderLine2  # Struct
 from com.sun.star.table import BorderLineStyle  # 定数
+from com.sun.star.table.CellHoriJustify import LEFT  # enum
 from com.sun.star.ui import ActionTriggerSeparatorType  # 定数
 from com.sun.star.ui.ContextMenuInterceptorAction import EXECUTE_MODIFIED  # enum
 from com.sun.star.util import XModifyListener
@@ -280,7 +281,7 @@ class DataModifyListener(unohelper.Base, XModifyListener):  # 固定行以下,�
 		VARS.setSheet(sheet)  # 最終行と黒行を取得し直す。
 		
 		
-		sheet[VARS.splittedrow:VARS.emptyrow, VARS.idcolumn:VARS.enddaycolumn+1]("HoriJustify", "NumberFormat"), (LEFT, createFormatKey("M/D"))
+		sheet[VARS.splittedrow:VARS.emptyrow, VARS.idcolumn:VARS.enddaycolumn+1].setPropertyValues(("HoriJustify", "NumberFormat"), (LEFT, createFormatKey("M/D")))
 			
 			# ID列、開始日列、終了日列の書式設定。
 			
