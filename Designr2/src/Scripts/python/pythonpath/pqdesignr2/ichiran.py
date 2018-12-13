@@ -280,7 +280,7 @@ class DataModifyListener(unohelper.Base, XModifyListener):  # 固定行以下,�
 		VARS.setSheet(sheet)  # 最終行と黒行を取得し直す。
 		
 		
-		sheet[VARS.splittedrow:VARS.emptyrow, VARS.idcolumn:VARS.enddaycolumn+1].set
+		sheet[VARS.splittedrow:VARS.emptyrow, VARS.idcolumn:VARS.enddaycolumn+1]("HoriJustify", "NumberFormat"), (LEFT, createFormatKey("M/D"))
 			
 			# ID列、開始日列、終了日列の書式設定。
 			
